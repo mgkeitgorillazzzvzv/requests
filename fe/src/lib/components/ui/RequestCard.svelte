@@ -1,0 +1,113 @@
+<script lang="ts">
+    import type { RequestOut } from "$lib/api";
+    import { RequestStatus, api } from "$lib/api";
+    import { goto } from '$app/navigation';
+    import userCreated from "$lib/assets/user_created.svg";
+    import userCompleted from "$lib/assets/user_completed.svg";
+    import building from "$lib/assets/building.svg";
+    import department from "$lib/assets/department.svg";
+    import { capitalizeFirstLetter, getFullName } from "$lib/util";
+    let { request }: { request: RequestOut } = $props();
+    
+    import { onDestroy } from 'svelte';
+
+    let photoUrl: string | null = $state(null);
+    
+    $effect(() => {
+        if (request.photos && request.photos.length > 0) {
+            
+            const filteredPhotos = request.photos.filter(p => !p.caption?.includes('выполненной работы'));
+            if (filteredPhotos.length > 0) {
+                api.getPhotoFile(filteredPhotos[0].id)
+                    .then(blob => {
+                        
+                        if (photoUrl) URL.revokeObjectURL(photoUrl);
+                        photoUrl = URL.createObjectURL(blob);
+                    })
+                    .catch(err => console.error('Failed to load photo:', err));
+            }
+        }
+    });
+
+    onDestroy(() => {
+        if (photoUrl) URL.revokeObjectURL(photoUrl);
+    });
+</script>
+
+<div
+    class="flex flex-col md:flex-row border-2 rounded-2xl border-gray-300 p-4 justify-between gap-4 items-stretch cursor-pointer {request.urgent ? 'bg-red-50' : ''}"
+    role="link"
+    tabindex="0"
+    onclick={() => goto(`/requests/${request.id}`)}
+    onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            goto(`/requests/${request.id}`);
+        }
+    }}
+>
+    <div class="flex flex-col gap-2 flex-1 justify-between min-h-24">
+        <div>
+            <div class="font-bold text-2xl md:text-3xl flex items-center gap-2">
+                {request.title}
+                {#if request.urgent}
+                    <span class="text-red-600 text-sm font-normal bg-red-100 px-2 py-1 rounded">Срочно</span>
+                {/if}
+            </div>
+            <div class="text-gray-600 text-base md:text-xl">{request.description}</div>
+        </div>
+        <div class="flex flex-row gap-2 flex-wrap items-center">
+            <div
+                class="{request.status === RequestStatus.Completed
+                    ? 'bg-green-500'
+                    : request.status === RequestStatus.PendingApproval
+                    ? 'bg-yellow-500'
+                    : request.status === RequestStatus.Postponed
+                    ? 'bg-red-500'
+                    : 'bg-blue-500'}
+                    text-white rounded-2xl px-3 py-1 text-sm md:text-base"
+            >
+                {capitalizeFirstLetter(request.status)}
+            </div>
+            <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
+                <img
+                    src={userCreated}
+                    alt="Создано пользователем"
+                    class="w-4 h-4 md:w-5 md:h-5"
+                />
+                <div class="text-gray-600 text-sm md:text-lg">
+                    {getFullName(request.opened_by)}
+                </div>
+            </div>
+            {#if request.status === RequestStatus.Completed && request.closed_by}
+                <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
+                    <img
+                        src={userCompleted}
+                        alt="Завершено пользователем"
+                        class="w-4 h-4 md:w-5 md:h-5"
+                    />
+                    <div class="text-gray-600 text-sm md:text-lg">
+                        {getFullName(request.closed_by)}
+                    </div>
+                </div>
+            {/if}
+            <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
+                <img src={building} alt="Корпус" class="w-4 h-4 md:w-5 md:h-5" />
+                <div class="text-gray-600 text-sm md:text-lg">{request.building}</div>
+            </div>
+            <div class="flex flex-row items-center gap-1">
+                <img src={department} alt="Отдел" class="w-4 h-4 md:w-5 md:h-5"/>
+                <div class="text-gray-600 text-sm md:text-lg">{request.department}</div>
+            </div>
+        </div>
+    </div>
+    {#if photoUrl}
+        <div class="hidden md:block md:shrink-0 md:ml-2 md:order-2 order-2 w-full md:w-auto">
+            <img
+                src={photoUrl}
+                alt=""
+                class="w-full h-48 md:w-32 md:h-32 object-cover rounded"
+            />
+        </div>
+    {/if}
+</div>
