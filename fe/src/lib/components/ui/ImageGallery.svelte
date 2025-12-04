@@ -10,29 +10,60 @@
     let { photos }: Props = $props();
     let selectedIndex = $state<number | null>(null);
 
-    
-    let photoUrls: Record<number, string | null> = $state({});
+    // Thumbnail URLs for grid view
+    let thumbnailUrls: Record<number, string | null> = $state({});
+    // Full resolution URLs
+    let fullUrls: Record<number, string | null> = $state({});
+    // Loading state for full images
+    let fullImageLoading: Record<number, boolean> = $state({});
 
-    
-    const preload = async () => {
+    // Load thumbnails first
+    const loadThumbnails = async () => {
         for (const photo of photos) {
-            if (!photoUrls[photo.id]) {
+            if (!thumbnailUrls[photo.id]) {
                 try {
-                    const blob = await api.getPhotoFile(photo.id);
-                    photoUrls[photo.id] = URL.createObjectURL(blob);
+                    const blob = await api.getPhotoThumbnail(photo.id, 200);
+                    thumbnailUrls[photo.id] = URL.createObjectURL(blob);
                 } catch (err) {
-                    console.error('Failed to load photo', photo.id, err);
-                    photoUrls[photo.id] = null;
+                    console.error('Failed to load thumbnail', photo.id, err);
+                    thumbnailUrls[photo.id] = null;
                 }
             }
         }
     };
 
-    preload();
+    // Load full resolution image for lightbox
+    const loadFullImage = async (photoId: number) => {
+        if (fullUrls[photoId]) return; // Already loaded
+        
+        fullImageLoading[photoId] = true;
+        try {
+            const blob = await api.getPhotoFile(photoId);
+            fullUrls[photoId] = URL.createObjectURL(blob);
+        } catch (err) {
+            console.error('Failed to load full image', photoId, err);
+            fullUrls[photoId] = null;
+        } finally {
+            fullImageLoading[photoId] = false;
+        }
+    };
+
+    loadThumbnails();
+
+    // When image is selected, start loading full resolution
+    $effect(() => {
+        if (selectedIndex !== null && photos[selectedIndex]) {
+            loadFullImage(photos[selectedIndex].id);
+        }
+    });
 
     onDestroy(() => {
-        for (const idStr in photoUrls) {
-            const url = photoUrls[idStr];
+        for (const idStr in thumbnailUrls) {
+            const url = thumbnailUrls[idStr];
+            if (url) URL.revokeObjectURL(url);
+        }
+        for (const idStr in fullUrls) {
+            const url = fullUrls[idStr];
             if (url) URL.revokeObjectURL(url);
         }
     });
@@ -67,6 +98,11 @@
     const handleBackdropClick = () => {
         selectedIndex = null;
     };
+
+    // Get the best available URL for the lightbox
+    const getLightboxUrl = (photoId: number) => {
+        return fullUrls[photoId] ?? thumbnailUrls[photoId] ?? '';
+    };
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -77,16 +113,27 @@
             onclick={() => (selectedIndex = index)}
             class="relative overflow-hidden rounded border border-gray-300 hover:border-[#1357ff] transition-colors cursor-pointer"
         >
-            <img
-                src={photoUrls[photo.id] ?? ''}
-                alt=""
-                class="w-full h-32 object-cover hover:scale-105 transition-transform"
-            />
+            {#if thumbnailUrls[photo.id]}
+                <img
+                    src={thumbnailUrls[photo.id] ?? ''}
+                    alt=""
+                    class="w-full h-32 object-cover hover:scale-105 transition-transform"
+                />
+            {:else}
+                <div class="w-full h-32 bg-gray-200 animate-pulse flex items-center justify-center">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+            {/if}
         </button>
     {/each}
 </div>
 
 {#if selectedIndex !== null}
+    {@const currentPhoto = photos[selectedIndex]}
+    {@const isFullLoaded = !!fullUrls[currentPhoto.id]}
+    {@const isLoading = fullImageLoading[currentPhoto.id]}
     <div
         class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-in fade-in duration-200"
         role="presentation"
@@ -102,18 +149,28 @@
                 ✕
             </button>
 
-            <!-- Main image -->
-            <button
+            <!-- Main image container -->
+            <div
+                role="button"
+                tabindex="0"
                 onclick={(e) => e.stopPropagation()}
-                class="max-w-full max-h-[85vh] object-contain animate-in zoom-in-95 duration-200 border-0 p-0 bg-transparent cursor-default"
-                aria-label="Full size image"
+                onkeydown={(e) => e.key === 'Enter' && e.stopPropagation()}
+                class="relative max-w-full max-h-[85vh] flex items-center justify-center"
             >
+                <!-- Thumbnail shown as blur while full image loads -->
                 <img
-                    src={photoUrls[photos[selectedIndex].id] ?? ''}
+                    src={getLightboxUrl(currentPhoto.id)}
                     alt=""
-                    class="max-w-full max-h-[85vh] object-contain"
+                    class="max-w-full max-h-[85vh] object-contain animate-in zoom-in-95 duration-200 transition-all {!isFullLoaded ? 'blur-sm scale-[0.99]' : ''}"
                 />
-            </button>
+                
+                <!-- Loading indicator -->
+                {#if isLoading}
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                {/if}
+            </div>
 
             <!-- Previous button -->
             {#if selectedIndex > 0}

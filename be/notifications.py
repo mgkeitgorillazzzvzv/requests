@@ -6,7 +6,7 @@ from pywebpush import webpush, WebPushException
 from pydantic import BaseModel
 from auth import get_current_user
 from models.tortoise import User, PushSubscription, Request as RequestModel
-from models.enums import Building, get_department_by_role, Role, RequestStatus
+from models.enums import Building, Role, RequestStatus
 
 router = APIRouter()
 

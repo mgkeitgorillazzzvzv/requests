@@ -90,6 +90,14 @@ export interface RequestOut {
 	pending_status_changes: StatusChangeRequestOut[];
 }
 
+export interface PaginatedRequestsOut {
+	items: RequestOut[];
+	total: number;
+	offset: number;
+	limit: number;
+	has_more: boolean;
+}
+
 
 export interface LoginRequest {
 	username: string;
@@ -288,9 +296,21 @@ class APIClient {
 		}
 	}
 
-	async listRequests(building?: Building | null): Promise<RequestOut[]> {
-		const params = building ? `?building=${encodeURIComponent(building)}` : '';
-		return this.request<RequestOut[]>(`/requests/${params}`);
+	async listRequests(options?: {
+		building?: Building | null;
+		status?: RequestStatus | null;
+		search?: string | null;
+		offset?: number;
+		limit?: number;
+	}): Promise<PaginatedRequestsOut> {
+		const params = new URLSearchParams();
+		if (options?.building) params.append('building', options.building);
+		if (options?.status) params.append('status', options.status);
+		if (options?.search) params.append('search', options.search);
+		if (options?.offset !== undefined) params.append('offset', options.offset.toString());
+		if (options?.limit !== undefined) params.append('limit', options.limit.toString());
+		const queryString = params.toString();
+		return this.request<PaginatedRequestsOut>(`/requests/${queryString ? '?' + queryString : ''}`);
 	}
 
 	async getRequest(requestId: number): Promise<RequestOut> {
@@ -377,6 +397,24 @@ class APIClient {
 
 		if (!response.ok) {
 			throw new Error(`Failed to fetch photo: ${response.status}`);
+		}
+
+		return response.blob();
+	}
+
+	async getPhotoThumbnail(photoId: number, size: number = 200): Promise<Blob> {
+		const headers: Record<string, string> = {};
+		if (this.token) {
+			headers['Authorization'] = `Bearer ${this.token}`;
+		}
+
+		const response = await fetch(
+			`${this.baseURL}/requests/photos/${photoId}/thumbnail?size=${size}`,
+			{ headers }
+		);
+
+		if (!response.ok) {
+			throw new Error(`Failed to fetch thumbnail: ${response.status}`);
 		}
 
 		return response.blob();

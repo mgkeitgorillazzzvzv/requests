@@ -1,11 +1,13 @@
 import os
 import uuid
+import io
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse, Response
+from PIL import Image, ExifTags
 from auth import get_current_user
-from models.enums import RequestStatus, Role, get_department_by_role, Building
+from models.enums import RequestStatus, Role, Building
 from models.tortoise import Request, User, RequestPhoto, RequestStatusChangeRequest, RequestHistory
 from models.pydantic import (
     CreateRequestRequest, 
@@ -17,6 +19,7 @@ from models.pydantic import (
     StatusChangeRequestOut,
     RequestHistoryOut,
     UserOut,
+    PaginatedRequestsOut,
 )
 
 router = APIRouter()
@@ -250,7 +253,14 @@ async def create_request(
     return await request_to_out(request)
 
 @router.get("/")
-async def list_requests(user: User = Depends(get_current_user), building: Optional[Building] = None) -> List[RequestOut]:
+async def list_requests(
+    user: User = Depends(get_current_user),
+    building: Optional[Building] = None,
+    status: Optional[RequestStatus] = None,
+    search: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 6
+) -> PaginatedRequestsOut:
     
     if user.role == Role.ADMIN:
         query = Request.filter(building=building) if building else Request.all()
@@ -265,10 +275,39 @@ async def list_requests(user: User = Depends(get_current_user), building: Option
         else:
             query = Request.none()
     else:
-        return []
+        return PaginatedRequestsOut(items=[], total=0, offset=offset, limit=limit, has_more=False)
 
-    requests = await query.prefetch_related('opened_by', 'closed_by', 'photos')
-    return [await request_to_out(request) for request in requests]
+    if status:
+        query = query.filter(status=status)
+    
+    # Search filter
+    if search:
+        from tortoise.expressions import Q
+        search_term = f"%{search}%"
+        query = query.filter(
+            Q(title__icontains=search) |
+            Q(description__icontains=search) |
+            Q(department__icontains=search) |
+            Q(opened_by__first_name__icontains=search) |
+            Q(opened_by__last_name__icontains=search)
+        )
+    
+    # Get total count before pagination
+    total = await query.count()
+    
+    # Order by urgent first (descending so True comes first), then by opened_at descending
+    requests = await query.order_by('-urgent', '-opened_at').offset(offset).limit(limit).prefetch_related('opened_by', 'closed_by', 'photos')
+    
+    items = [await request_to_out(request) for request in requests]
+    has_more = offset + len(items) < total
+    
+    return PaginatedRequestsOut(
+        items=items,
+        total=total,
+        offset=offset,
+        limit=limit,
+        has_more=has_more
+    )
 
 
 
@@ -691,16 +730,46 @@ async def get_request_photos(request_id: int, user: User = Depends(get_current_u
     ]
 
 
-@router.get("/photos/{photo_id}/file")
-async def get_photo_file(photo_id: int, user: User = Depends(get_current_user)):
-    photo = await RequestPhoto.filter(id=photo_id).prefetch_related('request').first()
-    if not photo:
-        raise HTTPException(status_code=404, detail="Photo not found")
-    
-    
+def generate_thumbnail(file_path: str, max_size: int = 200, quality: int = 60) -> bytes:
+    """Generate a thumbnail from an image file"""
+    with Image.open(file_path) as img:
+        # Apply EXIF orientation to fix rotated images
+        try:
+            for orientation in ExifTags.TAGS.keys():
+                if ExifTags.TAGS[orientation] == 'Orientation':
+                    break
+            exif = img._getexif()
+            if exif is not None:
+                orientation_value = exif.get(orientation)
+                if orientation_value == 3:
+                    img = img.rotate(180, expand=True)
+                elif orientation_value == 6:
+                    img = img.rotate(270, expand=True)
+                elif orientation_value == 8:
+                    img = img.rotate(90, expand=True)
+        except (AttributeError, KeyError, IndexError, TypeError):
+            # No EXIF data or orientation tag
+            pass
+        
+        # Convert to RGB if necessary (for PNG with transparency)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        
+        # Calculate thumbnail size maintaining aspect ratio
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        # Save to bytes
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=quality, optimize=True)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+
+async def check_photo_access(photo: RequestPhoto, user: User):
+    """Check if user has access to view the photo"""
     request = photo.request
     if user.role == Role.ADMIN:
-        pass
+        return True
     elif user.role == Role.HEAD:
         if request.building != user.building:
             raise HTTPException(status_code=403, detail="Not authorized to view this photo")
@@ -716,6 +785,44 @@ async def get_photo_file(photo_id: int, user: User = Depends(get_current_user)):
             raise HTTPException(status_code=403, detail="Not authorized to view this photo")
     else:
         raise HTTPException(status_code=403, detail="Not authorized to view this photo")
+    return True
+
+
+@router.get("/photos/{photo_id}/thumbnail")
+async def get_photo_thumbnail(
+    photo_id: int, 
+    user: User = Depends(get_current_user),
+    size: int = Query(200, ge=50, le=500, description="Max thumbnail size")
+):
+    """Get a low-resolution thumbnail of the photo"""
+    photo = await RequestPhoto.filter(id=photo_id).prefetch_related('request').first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    
+    await check_photo_access(photo, user)
+    
+    if not os.path.exists(photo.file_path):
+        raise HTTPException(status_code=404, detail="Photo file not found")
+    
+    try:
+        thumbnail_bytes = generate_thumbnail(photo.file_path, max_size=size)
+        return Response(
+            content=thumbnail_bytes,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
+    except Exception as e:
+        # Fallback to original file if thumbnail generation fails
+        return FileResponse(photo.file_path)
+
+
+@router.get("/photos/{photo_id}/file")
+async def get_photo_file(photo_id: int, user: User = Depends(get_current_user)):
+    photo = await RequestPhoto.filter(id=photo_id).prefetch_related('request').first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    
+    await check_photo_access(photo, user)
     
     if not os.path.exists(photo.file_path):
         raise HTTPException(status_code=404, detail="Photo file not found")

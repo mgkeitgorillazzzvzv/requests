@@ -6,31 +6,12 @@
     import userCompleted from "$lib/assets/user_completed.svg";
     import building from "$lib/assets/building.svg";
     import department from "$lib/assets/department.svg";
+    import {isMobile} from "$lib/platform"
     import { capitalizeFirstLetter, getFullName } from "$lib/util";
     let { request }: { request: RequestOut } = $props();
-    
-    import { onDestroy } from 'svelte';
-
-    let photoUrl: string | null = $state(null);
-    
+    let mobile = $state(false)
     $effect(() => {
-        if (request.photos && request.photos.length > 0) {
-            
-            const filteredPhotos = request.photos.filter(p => !p.caption?.includes('выполненной работы'));
-            if (filteredPhotos.length > 0) {
-                api.getPhotoFile(filteredPhotos[0].id)
-                    .then(blob => {
-                        
-                        if (photoUrl) URL.revokeObjectURL(photoUrl);
-                        photoUrl = URL.createObjectURL(blob);
-                    })
-                    .catch(err => console.error('Failed to load photo:', err));
-            }
-        }
-    });
-
-    onDestroy(() => {
-        if (photoUrl) URL.revokeObjectURL(photoUrl);
+        mobile = isMobile();
     });
 </script>
 
@@ -101,13 +82,5 @@
             </div>
         </div>
     </div>
-    {#if photoUrl}
-        <div class="hidden md:block md:shrink-0 md:ml-2 md:order-2 order-2 w-full md:w-auto">
-            <img
-                src={photoUrl}
-                alt=""
-                class="w-full h-48 md:w-32 md:h-32 object-cover rounded"
-            />
-        </div>
-    {/if}
+
 </div>

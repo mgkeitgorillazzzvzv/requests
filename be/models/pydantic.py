@@ -99,6 +99,14 @@ class RequestOut(BaseModel):
         from_attributes = True
 
 
+class PaginatedRequestsOut(BaseModel):
+    items: list[RequestOut]
+    total: int
+    offset: int
+    limit: int
+    has_more: bool
+
+
 class StatsOut(BaseModel):
     total_requests: int
     open_requests: int

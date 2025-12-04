@@ -5,8 +5,8 @@
         message?: string;
         confirmText?: string;
         cancelText?: string;
-        onConfirm: () => void;
-        onCancel: () => void;
+        onConfirm?: () => void;
+        onCancel?: () => void;
         isDangerous?: boolean;
         children?: () => any;
     }
@@ -24,12 +24,12 @@
     }: Props = $props();
 
     const handleConfirm = () => {
-        onConfirm();
+        onConfirm?.();
         isOpen = false;
     };
 
     const handleCancel = () => {
-        onCancel();
+        onCancel?.();
         isOpen = false;
     };
 
@@ -55,7 +55,20 @@
             onkeydown={handleKeyDown}
             onclick={(e) => e.stopPropagation()}
         >
-            <h2 class="text-xl font-bold mb-4">{title}</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">{title}</h2>
+                {#if !onCancel && !onConfirm}
+                    <button
+                        onclick={handleCancel}
+                        class="text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label="Close"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                {/if}
+            </div>
             
             {#if message}
                 <p class="text-gray-600 mb-6">{message}</p>
@@ -64,7 +77,7 @@
             {#if children}
                 {@render children()}
             {/if}
-            
+            {#if onCancel && onConfirm}
             <div class="flex gap-2 justify-end mt-6">
                 <button
                     onclick={handleCancel}
@@ -83,6 +96,8 @@
                     {confirmText}
                 </button>
             </div>
+                    {/if}
+
         </div>
     </div>
 {/if}

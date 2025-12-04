@@ -106,19 +106,19 @@
         rejectionPhotoInputRef?.click();
     };
 
-    let photoUrlCache: Record<number, string | null> = $state({});
+    let thumbnailUrlCache: Record<number, string | null> = $state({});
 
-    const getPhotoUrl = async (photoId: number) => {
-        if (photoUrlCache[photoId] !== undefined) {
-            return photoUrlCache[photoId];
+    const getThumbnailUrl = async (photoId: number) => {
+        if (thumbnailUrlCache[photoId] !== undefined) {
+            return thumbnailUrlCache[photoId];
         }
         try {
-            const blob = await api.getPhotoFile(photoId);
-            photoUrlCache[photoId] = URL.createObjectURL(blob);
-            return photoUrlCache[photoId];
+            const blob = await api.getPhotoThumbnail(photoId, 200);
+            thumbnailUrlCache[photoId] = URL.createObjectURL(blob);
+            return thumbnailUrlCache[photoId];
         } catch (err) {
-            console.error('Failed to load photo', photoId, err);
-            photoUrlCache[photoId] = null;
+            console.error('Failed to load thumbnail', photoId, err);
+            thumbnailUrlCache[photoId] = null;
             return null;
         }
     };
@@ -284,7 +284,7 @@
         
         switch (historyItem.action) {
             case 'created':
-                return `${userName} создал заявку`;
+                return `${userName} создал(а) заявку`;
             
             case 'status_changed':
                 if (historyItem.old_status && historyItem.new_status) {
@@ -406,7 +406,7 @@
                     {#if change.photo}
                         <div class="mt-2">
                             <p class="text-sm font-semibold mb-1">Прикрепленное фото:</p>
-                            {#await getPhotoUrl(change.photo.id)}
+                            {#await getThumbnailUrl(change.photo.id)}
                                 <div class="w-48 h-48 bg-gray-200 rounded animate-pulse"></div>
                             {:then url}
                                 {#if url}

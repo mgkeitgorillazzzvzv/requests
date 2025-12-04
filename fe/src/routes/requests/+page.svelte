@@ -14,8 +14,15 @@
 
 	let requests = $state<RequestOut[]>(data.requests ?? []);
 	let isLoading = $state(false);
+	let isLoadingMore = $state(false);
+	let hasMore = $state(data.hasMore ?? true);
+	let total = $state(data.total ?? 0);
 	let search = $state('');
-	let statusFilter = $state<'all' | RequestStatus>(RequestStatus.Created); 
+	let statusFilter = $state<'all' | RequestStatus>(RequestStatus.Created);
+	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+	let listContainer: HTMLDivElement | null = $state(null);
+
+	const LIMIT = 6;
 
 	const statusOptions = [
 		{ label: 'Все статусы', value: 'all' },
@@ -25,49 +32,81 @@
 		{ label: 'Отложено', value: RequestStatus.Postponed }
 	];
 
-	const filteredRequests = $derived.by(() => {
-		const term = search.trim().toLowerCase();
-		let filtered = requests.filter((request) => {
-			const matchesStatus =
-				statusFilter === 'all' || request.status === statusFilter;
-			const matchesSearch = term
-				? [
-					  request.title,
-					  request.description ?? '',
-					  request.opened_by.first_name,
-					  request.opened_by.last_name,
-					  request.building,
-					  request.department ?? ''
-				  ].some((field) => field.toLowerCase().includes(term))
-				: true;
-			return matchesStatus && matchesSearch;
-		});
-
+	const fetchRequests = async (reset: boolean = true) => {
+		if (reset) {
+			isLoading = true;
+			requests = [];
+		} else {
+			isLoadingMore = true;
+		}
 		
-		filtered.sort((a, b) => {
-			if (a.urgent && !b.urgent) return -1;
-			if (!a.urgent && b.urgent) return 1;
-			
-			return new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime();
-		});
-
-		return filtered;
-	});
-
-	const fetchRequests = async () => {
-		isLoading = true;
 		try {
-			requests = await api.listRequests();
+			const offset = reset ? 0 : requests.length;
+			const result = await api.listRequests({
+				status: statusFilter === 'all' ? null : statusFilter,
+				search: search.trim() || null,
+				offset,
+				limit: LIMIT
+			});
+			
+			if (reset) {
+				requests = result.items;
+			} else {
+				requests = [...requests, ...result.items];
+			}
+			hasMore = result.has_more;
+			total = result.total;
 		} catch (error) {
 			console.error('Failed to load requests:', error);
 			showToast('Не удалось загрузить заявки', 'error');
 		} finally {
 			isLoading = false;
+			isLoadingMore = false;
 		}
 	};
 
+	const loadMore = async () => {
+		if (isLoadingMore || !hasMore) return;
+		await fetchRequests(false);
+	};
+
+	const handleScroll = () => {
+		if (isLoadingMore || !hasMore) return;
+		
+		const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+		if (scrollTop + clientHeight >= scrollHeight - 200) {
+			loadMore();
+		}
+	};
+
+	const handleSearchChange = () => {
+		if (searchTimeout) clearTimeout(searchTimeout);
+		searchTimeout = setTimeout(() => {
+			fetchRequests(true);
+		}, 300);
+	};
+
+	const handleStatusChange = () => {
+		fetchRequests(true);
+	};
+
+	$effect(() => {
+		search;
+		handleSearchChange();
+	});
+
+	$effect(() => {
+		statusFilter;
+		handleStatusChange();
+	});
+
 	onMount(() => {
-		fetchRequests();
+		fetchRequests(true);
+		window.addEventListener('scroll', handleScroll);
+		return () => {
+			window.removeEventListener('scroll', handleScroll);
+			if (searchTimeout) clearTimeout(searchTimeout);
+		};
 	});
 
 	function handleCreateRequest() {
@@ -108,13 +147,18 @@
 
 	{#if isLoading && requests.length === 0}
 		<div class="text-gray-500">Загрузка заявок...</div>
-	{:else if filteredRequests.length === 0}
+	{:else if requests.length === 0}
 		<div class="text-gray-500">Заявки не найдены.</div>
 	{:else}
-		<div class="flex flex-col gap-3">
-			{#each filteredRequests as request (request.id)}
+		<div class="flex flex-col gap-3" bind:this={listContainer}>
+			{#each requests as request (request.id)}
 				<RequestCard request={request} />
 			{/each}
 		</div>
+		{#if isLoadingMore}
+			<div class="text-gray-500 text-center py-4">Загрузка...</div>
+		{:else if hasMore}
+			<div class="text-gray-400 text-center py-4 text-sm">Прокрутите вниз для загрузки ещё</div>
+		{/if}
 	{/if}
 </div>

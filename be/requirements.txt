@@ -6,3 +6,4 @@ passlib[argon2]
 authlib
 pywebpush
 python-multipart
+pillow
