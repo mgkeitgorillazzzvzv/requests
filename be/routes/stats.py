@@ -28,13 +28,12 @@ async def get_stats(
     For head of department: automatically filters by their building and department
     """
     
-    
+    # For head of department: use their building from profile (they see all departments in their building)
     if user.role == Role.HEAD:
-        if not user.building or not user.department:
-            raise HTTPException(status_code=400, detail="У руководителя отделения должны быть указаны корпус и отдел")
+        if not user.building:
+            raise HTTPException(status_code=400, detail="У руководителя отделения должен быть указан корпус")
         building = user.building
-        department = Department(user.department)
-    
+        # HEAD sees all departments in their building, so don't filter by department unless explicitly requested
     
     now = datetime.utcnow()
     if period == "day":

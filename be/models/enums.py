@@ -23,4 +23,4 @@ class RequestStatus(str, Enum):
 	PENDING_APPROVAL = "ожидает подтверждения"
 	COMPLETED = "выполнено"
 	POSTPONED = "отложено"
-
+	PENDING_CREATION_APPROVAL = "ожидает создания"

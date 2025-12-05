@@ -4,7 +4,6 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import ViewSwitcher from '$lib/components/ui/ViewSwitcher.svelte';
 	import { authStore, isAuthenticated } from '$lib/stores/auth';
-	import { versionStore } from '$lib/stores/version';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -12,19 +11,25 @@
 	let { children } = $props();
 
 	onMount(() => {
-		
 		const unsubscribe = page.subscribe($page => {
 			const currentPath = $page.url.pathname;
 			
+			// Список публичных страниц, не требующих авторизации
+			const publicPaths = ['/', '/login'];
+			const isPublicPath = publicPaths.includes(currentPath);
 			
 			if (!$authStore.isLoading) {
-				
-				if (!$isAuthenticated && currentPath !== '/login') {
+				// Если пользователь не авторизован и пытается попасть на защищенную страницу
+				if (!$isAuthenticated && !isPublicPath) {
 					goto('/login');
 				}
-				
+				// Если пользователь авторизован и находится на странице логина, перенаправляем на заявки
 				else if ($isAuthenticated && currentPath === '/login') {
-					goto('/');
+					goto('/requests');
+				}
+				// Если пользователь авторизован и на главной странице, перенаправляем на заявки
+				else if ($isAuthenticated && currentPath === '/') {
+					goto('/requests');
 				}
 			}
 		});
@@ -32,7 +37,7 @@
 		return unsubscribe;
 	});
 
-	let showNavigation = $derived($isAuthenticated && $page.url.pathname !== '/login');
+	let showNavigation = $derived($isAuthenticated && $page.url.pathname !== '/login' && $page.url.pathname !== '/');
 </script>
 
 <svelte:head>

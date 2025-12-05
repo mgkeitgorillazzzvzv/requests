@@ -28,6 +28,7 @@
 		{ label: 'Все статусы', value: 'all' },
 		{ label: 'Созданo', value: RequestStatus.Created },
 		{ label: 'Ожидает подтверждения', value: RequestStatus.PendingApproval },
+		{ label: 'Ожидает создания (Аномимные)', value: RequestStatus.PendingCreationApproval },
 		{ label: 'Выполнено', value: RequestStatus.Completed },
 		{ label: 'Отложено', value: RequestStatus.Postponed }
 	];

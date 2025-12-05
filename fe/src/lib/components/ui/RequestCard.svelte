@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { RequestOut } from "$lib/api";
-    import { RequestStatus, api } from "$lib/api";
+    import { RequestStatus, api, Role } from "$lib/api";
     import { goto } from '$app/navigation';
     import userCreated from "$lib/assets/user_created.svg";
     import userCompleted from "$lib/assets/user_completed.svg";
@@ -8,11 +8,29 @@
     import department from "$lib/assets/department.svg";
     import {isMobile} from "$lib/platform"
     import { capitalizeFirstLetter, getFullName } from "$lib/util";
+    
     let { request }: { request: RequestOut } = $props();
     let mobile = $state(false)
+    
     $effect(() => {
         mobile = isMobile();
     });
+    
+    const getStatusColor = (status: RequestStatus): string => {
+        switch(status) {
+            case RequestStatus.Completed:
+                return 'bg-green-500';
+            case RequestStatus.PendingApproval:
+                return 'bg-yellow-500';
+            case RequestStatus.Postponed:
+                return 'bg-red-500';
+            case RequestStatus.PendingCreationApproval:
+                return 'bg-purple-500';
+            case RequestStatus.Created:
+            default:
+                return 'bg-blue-500';
+        }
+    };
 </script>
 
 <div
@@ -39,27 +57,26 @@
         </div>
         <div class="flex flex-row gap-2 flex-wrap items-center">
             <div
-                class="{request.status === RequestStatus.Completed
-                    ? 'bg-green-500'
-                    : request.status === RequestStatus.PendingApproval
-                    ? 'bg-yellow-500'
-                    : request.status === RequestStatus.Postponed
-                    ? 'bg-red-500'
-                    : 'bg-blue-500'}
-                    text-white rounded-2xl px-3 py-1 text-sm md:text-base"
+                class="text-white rounded-2xl px-3 py-1 text-sm md:text-base {getStatusColor(request.status)}"
             >
                 {capitalizeFirstLetter(request.status)}
             </div>
-            <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
-                <img
-                    src={userCreated}
-                    alt="Создано пользователем"
-                    class="w-4 h-4 md:w-5 md:h-5"
-                />
-                <div class="text-gray-600 text-sm md:text-lg">
-                    {getFullName(request.opened_by)}
+            {#if !request.is_anonymous && request.opened_by}
+                <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
+                    <img
+                        src={userCreated}
+                        alt="Создано пользователем"
+                        class="w-4 h-4 md:w-5 md:h-5"
+                    />
+                    <div class="text-gray-600 text-sm md:text-lg">
+                        {getFullName(request.opened_by)}
+                    </div>
                 </div>
-            </div>
+            {:else if request.is_anonymous}
+                <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
+                    <div class="text-gray-500 italic text-sm md:text-lg">Анонимная заявка</div>
+                </div>
+            {/if}
             {#if request.status === RequestStatus.Completed && request.closed_by}
                 <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
                     <img
@@ -82,5 +99,4 @@
             </div>
         </div>
     </div>
-
 </div>

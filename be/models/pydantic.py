@@ -30,6 +30,13 @@ class CreateRequestRequest(BaseModel):
     urgent: bool = False
 
 
+class CreateAnonymousRequestRequest(BaseModel):
+    title: str
+    description: str | None = None
+    building: Building
+    department: str | None = None
+
+
 class UpdateRequestRequest(BaseModel):
     title: str | None = None
     description: str | None = None
@@ -83,14 +90,15 @@ class RequestOut(BaseModel):
     title: str
     description: str | None = None
     building: Building
-    opened_by_id: int
+    opened_by_id: int | None = None
     closed_by_id: int | None = None
-    opened_by: UserOut
+    opened_by: UserOut | None = None
     closed_by: UserOut | None = None
     opened_at: str  
     closed_at: str | None = None  
     department: str | None = None
     urgent: bool = False
+    is_anonymous: bool = False
     photos: list[PhotoOut] = []
     history: list["RequestHistoryOut"] = []
     pending_status_changes: list["StatusChangeRequestOut"] = []

@@ -113,7 +113,6 @@
     <BackButton />
     <Entry bind:value={title} placeholder="Опишите проблему" disabled={isSubmitting}/>
     
-    <!-- Building selection - only for admin -->
     {#if isAdmin}
         <Dropdown
             bind:value={building}
@@ -128,23 +127,20 @@
         />
     {/if}
     
-    <!-- Department selection - только АХЧ в UI (IT появится позже) -->
     <Dropdown
         bind:value={department}
         options={[
-            { label: 'АХЧ', value: Department.Maintenance },
+        { label: 'АХЧ', value: Department.Maintenance },{label: 'IT', value: Department.IT}
         ]}
         placeholder="Выберите отдел"
         disabled={isSubmitting}
     />
 
-    <!-- Urgent checkbox -->
     <div class="flex items-center gap-3">
         <Toggle bind:checked={urgent} disabled={isSubmitting} />
         <span class="text-lg">Срочная заявка</span>
     </div>
 
-    <!-- Photo Upload Section -->
     <div class="border-2 border-gray-200 rounded p-4">
         <h3 class="text-xl font-semibold mb-2">Фотографии</h3>
         
@@ -163,7 +159,6 @@
             />
         </label>
 
-        <!-- Photo Previews -->
         {#if photoPreviewUrls.length > 0}
             <div class="mt-4">
                 <p class="font-semibold mb-2">Прикрепленные фото ({photoPreviewUrls.length}):</p>

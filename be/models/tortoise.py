@@ -29,7 +29,7 @@ class Request(models.Model):
 	title = fields.CharField(max_length=255)
 	description = fields.TextField(null=True)
 	building = fields.CharEnumField(Building, max_length=50)
-	opened_by = fields.ForeignKeyField("models.User", related_name="requests_opened", on_delete=fields.CASCADE)
+	opened_by = fields.ForeignKeyField("models.User", related_name="requests_opened", on_delete=fields.CASCADE, null=True)
 	closed_by = fields.ForeignKeyField(
 		"models.User", related_name="requests_closed", null=True, on_delete=fields.SET_NULL
 	)
@@ -37,6 +37,7 @@ class Request(models.Model):
 	closed_at = fields.DatetimeField(null=True)
 	department = fields.CharField(max_length=255, null=True)
 	urgent = fields.BooleanField(default=False)
+	is_anonymous = fields.BooleanField(default=False)
 
 	class Meta:
 		table = "requests"

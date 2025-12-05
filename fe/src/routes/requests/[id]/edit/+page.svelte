@@ -132,7 +132,7 @@
     <Dropdown
         bind:value={department}
         options={[
-            { label: 'АХЧ', value: Department.Maintenance },
+        { label: 'АХЧ', value: Department.Maintenance },{label: 'IT', value: Department.IT}
         ]}
         placeholder="Выберите отдел"
         disabled={isLoading}

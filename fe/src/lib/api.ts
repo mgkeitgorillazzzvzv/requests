@@ -10,7 +10,8 @@ export enum RequestStatus {
 	Created = 'создано',
 	PendingApproval = 'ожидает подтверждения',
 	Completed = 'выполнено',
-	Postponed = 'отложено'
+	Postponed = 'отложено',
+	PendingCreationApproval = 'ожидает создания'
 }
 
 export enum Role {
@@ -79,12 +80,13 @@ export interface RequestOut {
 	title: string;
 	description?: string | null;
 	building: Building;
-	opened_by: UserOut;
+	opened_by?: UserOut | null;
 	closed_by?: UserOut | null;
 	opened_at: string;
 	closed_at?: string | null;
 	department?: string | null;
 	urgent: boolean;
+	is_anonymous: boolean;
 	photos: PhotoOut[];
 	history: RequestHistoryOut[];
 	pending_status_changes: StatusChangeRequestOut[];
@@ -131,6 +133,13 @@ export interface CreateRequestRequest {
 	department?: string | null;
 	status?: RequestStatus;
 	urgent?: boolean;
+}
+
+export interface CreateAnonymousRequestRequest {
+	title: string;
+	description?: string | null;
+	building: Building;
+	department?: string | null;
 }
 
 export interface UpdateRequestRequest {
@@ -457,6 +466,48 @@ class APIClient {
 	async returnPostponedToWork(requestId: number): Promise<RequestOut> {
 		return this.request<RequestOut>(
 			`/requests/${requestId}/return-to-work`,
+			{
+				method: 'POST'
+			}
+		);
+	}
+
+	// Anonymous Requests
+	async createAnonymousRequest(data: CreateAnonymousRequestRequest | FormData): Promise<RequestOut> {
+		if (data instanceof FormData) {
+			const response = await fetch(`${this.baseURL}/requests/anonymous`, {
+				method: 'POST',
+				body: data
+			});
+
+			if (!response.ok) {
+				const error = await response.json().catch(() => ({}));
+				throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+			}
+
+			return response.json();
+		} else {
+			// Без токена для анонимных запросов
+			const response = await fetch(`${this.baseURL}/requests/anonymous`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(data)
+			});
+
+			if (!response.ok) {
+				const error = await response.json().catch(() => ({}));
+				throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+			}
+
+			return response.json();
+		}
+	}
+
+	async approveAnonymousRequest(requestId: number): Promise<RequestOut> {
+		return this.request<RequestOut>(
+			`/requests/${requestId}/approve-anonymous`,
 			{
 				method: 'POST'
 			}

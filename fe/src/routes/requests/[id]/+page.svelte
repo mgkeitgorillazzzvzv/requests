@@ -76,6 +76,22 @@
                data.request.status === RequestStatus.Postponed;
     });
 
+    // Можно ли одобрить анонимную заявку
+    const canApproveAnonymous = $derived.by(() => {
+        if (!data.user || !data.request) return false;
+        return (data.user.role === Role.Admin || data.user.role === Role.HeadOfDepartment) && 
+               data.request.is_anonymous &&
+               data.request.status === RequestStatus.PendingCreationApproval;
+    });
+
+    // Можно ли редактировать анонимную заявку перед апрувом
+    const canEditAnonymous = $derived.by(() => {
+        if (!data.user || !data.request) return false;
+        return (data.user.role === Role.Admin || data.user.role === Role.HeadOfDepartment) && 
+               data.request.is_anonymous &&
+               data.request.status === RequestStatus.PendingCreationApproval;
+    });
+
     const handleEditClick = () => {
         goto(`/requests/${data.request.id}/edit`);
     };
@@ -266,6 +282,40 @@
         }
     };
 
+    const handleApproveAnonymous = async () => {
+        if (!data.request) return;
+
+        isLoading = true;
+        try {
+            await api.approveAnonymousRequest(data.request.id);
+            toast.success('Анонимная заявка одобрена');
+            await invalidateAll();
+        } catch (error) {
+            console.error('Failed to approve anonymous request:', error);
+            toast.error('Ошибка при одобрении заявки');
+        } finally {
+            isLoading = false;
+        }
+    };
+
+    const handleDeleteAnonymous = async () => {
+        if (!data.request) return;
+
+        if (!confirm('Вы уверены, что хотите удалить эту заявку?')) return;
+
+        isLoading = true;
+        try {
+            await api.deleteRequest(data.request.id);
+            toast.success('Заявка удалена');
+            goto('/requests');
+        } catch (error) {
+            console.error('Failed to delete request:', error);
+            toast.error('Ошибка при удалении заявки');
+        } finally {
+            isLoading = false;
+        }
+    };
+
     const getStatusColor = (status: RequestStatus) => {
         switch (status) {
             case RequestStatus.Completed:
@@ -274,6 +324,8 @@
                 return 'bg-yellow-500';
             case RequestStatus.Postponed:
                 return 'bg-gray-500';
+            case RequestStatus.PendingCreationApproval:
+                return 'bg-purple-500';
             default:
                 return 'bg-blue-500';
         }
@@ -310,6 +362,13 @@
             
             case 'status_change_rejected':
                 return `${userName} отклонил запрос на изменение статуса`;
+            
+            case 'anonymous_request_approved':
+                if (historyItem.new_status) {
+                    const newStatusRu = getStatusNameInRussian(historyItem.new_status);
+                    return `${userName} одобрил(а) анонимную заявку и изменил статус на "${newStatusRu}"`;
+                }
+                return `${userName} одобрил(а) анонимную заявку`;
             
             default:
                 return `${userName} выполнил действие: ${historyItem.action}`;
@@ -355,11 +414,19 @@
                 {capitalizeFirstLetter(data.request.status)}
             </span>
             
-            <div class="flex items-center gap-2">
-                <img src={userCreated} alt="" class="w-5 h-5" />
-                <span class="text-gray-600"><strong>{getFullName(data.request.opened_by)}</strong></span>
-                <span class="text-gray-500 text-sm">{formatDateWithoutSeconds(data.request.opened_at)}</span>
-            </div>
+            {#if data.request.opened_by}
+                <div class="flex items-center gap-2">
+                    <img src={userCreated} alt="" class="w-5 h-5" />
+                    <span class="text-gray-600"><strong>{getFullName(data.request.opened_by)}</strong></span>
+                    <span class="text-gray-500 text-sm">{formatDateWithoutSeconds(data.request.opened_at)}</span>
+                </div>
+            {:else if data.request.is_anonymous}
+                <div class="flex items-center gap-2">
+                    <img src={userCreated} alt="" class="w-5 h-5" />
+                    <span class="text-gray-500 italic">Анонимная заявка</span>
+                    <span class="text-gray-500 text-sm">{formatDateWithoutSeconds(data.request.opened_at)}</span>
+                </div>
+            {/if}
 
             {#if (data.request.status === RequestStatus.Completed || data.request.status === RequestStatus.Postponed) && data.request.closed_by}
                 <div class="flex items-center gap-2">
@@ -519,6 +586,34 @@
                 class="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white rounded-2xl px-5 py-3 transition-colors font-medium"
             >
                 Вернуть в работу
+            </button>
+        {/if}
+
+        <!-- Approve Anonymous Request Buttons -->
+        {#if canEditAnonymous}
+            <button
+                onclick={handleEditClick}
+                disabled={isLoading}
+                class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-2xl px-5 py-3 transition-colors font-medium"
+            >
+                Редактировать
+            </button>
+        {/if}
+
+        {#if canApproveAnonymous}
+            <button
+                onclick={handleApproveAnonymous}
+                disabled={isLoading}
+                class="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white rounded-2xl px-5 py-3 transition-colors font-medium"
+            >
+                {isLoading ? 'Одобряю...' : 'Одобрить'}
+            </button>
+            <button
+                onclick={handleDeleteAnonymous}
+                disabled={isLoading}
+                class="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white rounded-2xl px-5 py-3 transition-colors font-medium"
+            >
+                Удалить
             </button>
         {/if}
     </div>

@@ -50,7 +50,7 @@
     
     
     const departmentOptions = [
-        { label: 'АХЧ', value: Department.Maintenance }
+        { label: 'АХЧ', value: Department.Maintenance },{label: 'IT', value: Department.IT}
     ];
 
     

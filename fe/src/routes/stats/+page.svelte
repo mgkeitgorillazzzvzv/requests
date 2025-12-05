@@ -32,6 +32,10 @@
 	let selectedPeriodStr = $state('month');
 
 	$effect(() => {
+		// For head of department, automatically use their building
+		if ($isHeadOfDepartment && $currentUser?.building && selectedBuildingStr === '') {
+			selectedBuildingStr = $currentUser.building as string;
+		}
 		selectedBuilding = selectedBuildingStr === '' ? null : (selectedBuildingStr as Building);
 		selectedPeriod = selectedPeriodStr as 'day' | 'week' | 'month';
 		loadStats();
@@ -46,14 +50,13 @@
 			
 			
 			
-			if (!$isHeadOfDepartment) {
-				itStats = await api.getStats(selectedBuilding, Department.IT, selectedPeriod);
-				maintenanceStats = await api.getStats(
-					selectedBuilding,
-					Department.Maintenance,
-					selectedPeriod
-				);
-			}
+			// Load department stats for all users (admin sees by selected building, head sees their building)
+			itStats = await api.getStats(selectedBuilding, Department.IT, selectedPeriod);
+			maintenanceStats = await api.getStats(
+				selectedBuilding,
+				Department.Maintenance,
+				selectedPeriod
+			);
 		} catch (e) {
 			const errorMsg = e instanceof Error ? e.message : 'Ошибка загрузки статистики';
 			console.error('Error loading stats:', e);
@@ -130,7 +133,7 @@
 				<div class="bg-white rounded-lg shadow-sm p-6">
 					<h2 class="text-xl font-semibold text-gray-800 mb-4">
 						{#if $isHeadOfDepartment}
-							Статистика отделения {$currentUser?.department}
+							Статистика корпуса {$currentUser?.building}
 						{:else}
 							Общая статистика
 						{/if}
@@ -161,8 +164,7 @@
 					</div>
 				</div>
 
-				<!-- 
-				IT Department Stats Section - Закомментировано для руководителей отделений
+				<!-- Department Stats Sections - for all users -->
 				<div class="bg-white rounded-lg shadow-sm p-6">
 					<h2 class="text-xl font-semibold text-gray-800 mb-4">Отдел IT</h2>
 					<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -179,7 +181,7 @@
 							<div class="text-2xl font-bold text-purple-600">{itStats?.closed_requests}</div>
 						</div>
 						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Коэффициент</div>
+							<div class="text-sm text-gray-600 font-medium">Соотношение</div>
 							<div class="text-2xl font-bold text-amber-600">{formatRatio(itStats?.ratio || 0)}</div>
 						</div>
 						<div class="bg-gray-50 rounded-lg p-4">
@@ -191,7 +193,6 @@
 					</div>
 				</div>
 
-				Maintenance Department Stats Section - Закомментировано для руководителей отделений
 				<div class="bg-white rounded-lg shadow-sm p-6">
 					<h2 class="text-xl font-semibold text-gray-800 mb-4">Отдел АХЧ</h2>
 					<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -214,7 +215,7 @@
 							</div>
 						</div>
 						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Коэффициент</div>
+							<div class="text-sm text-gray-600 font-medium">Соотношение</div>
 							<div class="text-2xl font-bold text-amber-600">
 								{formatRatio(maintenanceStats?.ratio || 0)}
 							</div>
@@ -227,7 +228,6 @@
 						</div>
 					</div>
 				</div>
-				-->
 			</div>
 		{/if}
 	</div>

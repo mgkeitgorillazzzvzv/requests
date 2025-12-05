@@ -125,8 +125,7 @@ async def update_user(
 	if "role" in update_data and update_data["role"] is not None:
 		user.role = update_data["role"]
 
-	if "building" in update_data:
-		
+	if "building" in update_data and update_data["building"] != user.building:
 		if current_user.role != Role.ADMIN:
 			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admin can change user building")
 		user.building = update_data["building"]

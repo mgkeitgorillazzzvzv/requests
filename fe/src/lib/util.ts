@@ -13,6 +13,9 @@ export function formatDateWithoutSeconds(dateString: string): string {
     });
 }
 
-export function getFullName(user: { first_name: string; last_name: string }): string {
+export function getFullName(user: { first_name: string; last_name: string } | null | undefined): string {
+    if (!user) {
+        return 'Анонимная заявка';
+    }
     return `${user.first_name} ${user.last_name}`.trim();
 }
