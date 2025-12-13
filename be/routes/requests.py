@@ -531,18 +531,12 @@ async def create_status_change_request(
         raise HTTPException(status_code=403, detail="Not authorized for this department")
 
 
-    if payload.requested_status == RequestStatus.COMPLETED:
-        if not payload.photo_id:
-            raise HTTPException(status_code=400, detail="Photo is required for COMPLETED status")
+    if payload.requested_status not in (RequestStatus.COMPLETED, RequestStatus.POSTPONED):
+        raise HTTPException(status_code=400, detail="Can only request COMPLETED or POSTPONED status")
 
-        photo = await RequestPhoto.get_or_none(id=payload.photo_id, request_id=request_id)
-        if not photo:
-            raise HTTPException(status_code=404, detail="Photo not found or doesn't belong to this request")
-    elif payload.requested_status == RequestStatus.POSTPONED:
+    if payload.requested_status == RequestStatus.POSTPONED:
         if not payload.reason:
             raise HTTPException(status_code=400, detail="Reason is required for POSTPONED status")
-    else:
-        raise HTTPException(status_code=400, detail="Can only request COMPLETED or POSTPONED status")
 
 
     change_request = await RequestStatusChangeRequest.create(

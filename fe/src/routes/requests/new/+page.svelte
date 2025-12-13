@@ -90,6 +90,15 @@
 
     
     onMount(() => {
+        const normalizeBuilding = (v: string | null) => {
+            if (!v) return v;
+            if (v === 'Коломенская') return 'Дизайн колледж';
+            if (v === 'Харьковский') return 'IT.Бирюлево';
+            if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
+            if (v === 'Судостроительная') return 'Центр городских технологий';
+            return v;
+        };
+
         
         const unsubscribe = currentUser.subscribe(user => {
             if (user) {
@@ -97,15 +106,39 @@
                 isAdmin = user.role === Role.Admin;
                 
                 if (user.role === Role.HeadOfDepartment && user.building) {
-                    building = user.building as Building;
+                    building = normalizeBuilding(user.building as string) as Building;
+                } else {
+                    const savedBuilding = localStorage.getItem('selectedBuilding');
+                    const normalized = normalizeBuilding(savedBuilding);
+                    if (normalized && Object.values(Building).includes(normalized as Building)) {
+                        building = normalized as Building;
+                        localStorage.setItem('selectedBuilding', normalized);
+                    }
                 }
             }
         });
+        
+        const savedDepartment = localStorage.getItem('selectedDepartment');
+        if (savedDepartment && Object.values(Department).includes(savedDepartment as Department)) {
+            department = savedDepartment as Department;
+        }
 
         return () => {
             photoPreviewUrls.forEach(url => URL.revokeObjectURL(url));
             unsubscribe();
         };
+    });
+    
+    $effect(() => {
+        if (building) {
+            localStorage.setItem('selectedBuilding', building);
+        }
+    });
+    
+    $effect(() => {
+        if (department) {
+            localStorage.setItem('selectedDepartment', department);
+        }
     });
 </script>
 
@@ -117,10 +150,10 @@
         <Dropdown
             bind:value={building}
             options={[
-                { label: 'Миллионщикова', value: Building.Millionschikova },
-                { label: 'Коломенская', value: Building.Kolomenskaya },
-                { label: 'Судостроительная', value: Building.Sudostroitelnaya },
-                { label: 'Харьковский', value: Building.Kharkovskiy },
+                { label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
+                { label: 'Дизайн колледж', value: Building.Kolomenskaya },
+                { label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
+                { label: 'IT.Бирюлево', value: Building.Kharkovskiy },
             ]}
             placeholder="Выберите корпус"
             disabled={isSubmitting}

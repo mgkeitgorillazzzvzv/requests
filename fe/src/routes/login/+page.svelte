@@ -8,7 +8,9 @@
 	import { showToast } from '$lib/stores/toast';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import { pushNotifications } from '$lib/stores/push';
+	import { fade } from 'svelte/transition';
     import { get } from 'svelte/store';
+	import logo from '$lib/assets/logo.svg';
 
 	import menu26 from '$lib/assets/tutorial/26/menu.jpeg';
 	import addtohomescreen26 from '$lib/assets/tutorial/26/addtohomescreen.jpeg';
@@ -68,7 +70,10 @@
 </script>
 
 <div class="flex justify-center items-center min-h-screen ">
-	<div class="bg-white rounded-xl shadow-lg p-10 w-full max-w-sm">
+	<div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
+		<div class="mb-3">
+			<img src={logo} alt="Logo" class="mx-auto w-[180px] mb-6" in:fade={{ duration: 800 }} />
+		</div>
 		<h1 class="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-2">Вход в систему</h1>
 
 		<form class="flex flex-col gap-5">

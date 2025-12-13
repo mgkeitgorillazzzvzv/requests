@@ -20,13 +20,44 @@
 		if ($isAuthenticated) {
 			goto('/requests');
 		}
+		
+		const normalizeBuilding = (v: string | null) => {
+			if (!v) return v;
+			if (v === 'Коломенская') return 'Дизайн колледж';
+			if (v === 'Харьковский') return 'IT.Бирюлево';
+			if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
+			if (v === 'Судостроительная') return 'Центр городских технологий';
+			return v;
+		};
+		const savedBuilding = normalizeBuilding(localStorage.getItem('selectedBuilding'));
+		const savedDepartment = localStorage.getItem('selectedDepartment');
+		
+		if (savedBuilding && Object.values(Building).includes(savedBuilding as Building)) {
+			building = savedBuilding as Building;
+		}
+		
+		if (savedDepartment && Object.values(Department).includes(savedDepartment as Department)) {
+			department = savedDepartment as Department;
+		}
+	});
+	
+	$effect(() => {
+		if (building) {
+			localStorage.setItem('selectedBuilding', building);
+		}
+	});
+	
+	$effect(() => {
+		if (department) {
+			localStorage.setItem('selectedDepartment', department);
+		}
 	});
 	
 	const buildingOptions = [
-		{ label: 'Миллионщикова', value: Building.Millionschikova },
-		{ label: 'Коломенская', value: Building.Kolomenskaya },
-		{ label: 'Судостроительная', value: Building.Sudostroitelnaya },
-		{ label: 'Харьковский', value: Building.Kharkovskiy }
+		{ label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
+		{ label: 'Дизайн колледж', value: Building.Kolomenskaya },
+		{ label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
+		{ label: 'IT.Бирюлево', value: Building.Kharkovskiy }
 	];
 	
 	const departmentOptions = [

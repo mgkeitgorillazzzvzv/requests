@@ -1,12 +1,14 @@
 <script lang="ts">
-    import Button from "$lib/components/controls/Button.svelte";
     import Entry from "$lib/components/controls/Entry.svelte";
     import Modal from "$lib/components/ui/Modal.svelte";
+    import FAB from "$lib/components/ui/FAB.svelte";
     import UserCard from "$lib/components/ui/UserCard.svelte";
     import { api, type UserOut } from "$lib/api";
     import { showToast } from "$lib/stores/toast";
     import { getFullName } from "$lib/util";
+    import { createPullToRefresh, attachPullToRefresh, PULL_THRESHOLD } from "$lib/utils/pullToRefresh";
     import { goto } from "$app/navigation";
+    import { canCreateUsers } from "$lib/stores/auth";
     import { onMount } from "svelte";
     import type { PageData } from "./$types";
 
@@ -18,6 +20,7 @@
     let isDeleting = $state(false);
     let userToDelete = $state<UserOut | null>(null);
     let search = $state('');
+    let pullState = $state({ pullProgress: 0, isPulling: false, touchStartY: 0 });
 
     const filteredUsers = $derived.by(() => {
         const term = search.trim().toLowerCase();
@@ -45,6 +48,13 @@
 
     onMount(() => {
         fetchUsers();
+        
+        const pullHandlers = createPullToRefresh(pullState, isLoading, () => fetchUsers());
+        const cleanup = attachPullToRefresh(pullHandlers);
+        
+        return () => {
+            cleanup();
+        };
     });
 
     const handleCreateClick = () => {
@@ -88,11 +98,16 @@
 </script>
 
 <div class="max-w-4xl mx-auto p-4 flex flex-col gap-4">
+    {#if pullState.isPulling || pullState.pullProgress > 0}
+        <div class="fixed top-0 left-0 right-0 h-1 bg-blue-500 z-50" style="width: {(pullState.pullProgress / PULL_THRESHOLD) * 100}%"></div>
+    {/if}
+    
     <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div class="w-full">
             <h1 class="text-3xl font-bold">Пользователи</h1>
+            <p class="text-gray-600">Просматривайте и управляйте пользователями.</p>
         </div>
-        <Button onclick={handleCreateClick} className="md:w-auto w-full">Добавить</Button>
+        <!-- header button removed in favor of FAB -->
     </div>
 
     <div class="flex flex-col md:flex-row gap-3">
@@ -119,6 +134,10 @@
         </div>
     {/if}
 </div>
+
+{#if $canCreateUsers}
+    <FAB onclick={handleCreateClick} ariaLabel="Создать пользователя" title="Создать пользователя" text="Создать пользователя" />
+{/if}
 
 <Modal
     bind:isOpen={showDeleteModal}

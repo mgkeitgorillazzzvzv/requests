@@ -42,6 +42,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<title>Наш колледж</title>
 </svelte:head>
 
 {#if $authStore.isLoading}

@@ -24,10 +24,10 @@
     let thumbnailUrls: Record<number, string | null> = $state({});
 
     const buildingOptions = [
-        { label: 'Миллионщикова', value: Building.Millionschikova },
-        { label: 'Коломенская', value: Building.Kolomenskaya },
-        { label: 'Судостроительная', value: Building.Sudostroitelnaya },
-        { label: 'Харьковский', value: Building.Kharkovskiy }
+        { label: 'Дизайн колледж', value: Building.Kolomenskaya },
+        { label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
+        { label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
+        { label: 'IT.Бирюлево', value: Building.Kharkovskiy }
     ];
 
     onMount(() => {
@@ -35,7 +35,15 @@
             title = data.request.title;
             description = data.request.description || '';
             department = (data.request.department as Department) || Department.Maintenance;
-            building = data.request.building;
+            const normalizeBuilding = (v: string | null) => {
+                if (!v) return v;
+                if (v === 'Коломенская') return 'Дизайн колледж';
+                if (v === 'Харьковский') return 'IT.Бирюлево';
+                if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
+                if (v === 'Судостроительная') return 'Центр городских технологий';
+                return v;
+            };
+            building = normalizeBuilding(data.request.building as string) as Building;
             urgent = data.request.urgent || false;
         }
         

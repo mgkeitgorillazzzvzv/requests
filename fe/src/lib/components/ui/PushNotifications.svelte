@@ -27,7 +27,6 @@
 	}
 </script>
 
-<div class="w-full bg-gray-50 border border-gray-200 rounded-lg p-4">
 	{#if !state?.supported}
 		<p class="text-sm text-gray-600">Уведомления недоступны. На iOS нажмите "Поделиться" и добавьте сайт на экран "Домой" для получения уведомлений.</p>
 	{:else if state?.permission === 'denied'}
@@ -47,6 +46,3 @@
 			</Button>
 		</div>
 	{/if}
-</div>
-
-<!-- Styling migrated to Tailwind classes; original local CSS removed -->

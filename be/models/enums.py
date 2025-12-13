@@ -12,10 +12,10 @@ class Department(str, Enum):
     MAINTENANCE = "АХЧ"
 
 class Building(str, Enum):
-	MILLIONSHCHIKOVA = "Миллионщикова"
-	KOLOMENSKAYA = "Коломенская"
-	SUDOSTROITELNAYA = "Судостроительная"
-	KHARKOVSKY = "Харьковский"
+	MILLIONSHCHIKOVA = "Центр программирования и кибербезопасности"
+	KOLOMENSKAYA = "Дизайн колледж"
+	SUDOSTROITELNAYA = "Центр городских технологий"
+	KHARKOVSKY = "IT.Бирюлево"
 
 
 class RequestStatus(str, Enum):

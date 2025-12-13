@@ -8,6 +8,7 @@
     import { toast } from "$lib/stores/toast";
     import { api, RequestStatus, Role } from "$lib/api";
     import { goto, invalidateAll } from "$app/navigation";
+    import { createPullToRefresh, attachPullToRefresh, PULL_THRESHOLD } from "$lib/utils/pullToRefresh";
     import userCreated from "$lib/assets/user_created.svg";
     import userCompleted from "$lib/assets/user_completed.svg";
     import building from "$lib/assets/building.svg";
@@ -19,9 +20,8 @@
 
     let isLoading = $state(false);
     let showStatusChangeModal = $state(false);
-    let showReviewModal = $state(false);
     let showRejectionModal = $state(false);
-    
+    let pullState = $state({ pullProgress: 0, isPulling: false, touchStartY: 0 });
     
     let requestedStatus = $state<RequestStatus>(RequestStatus.Completed);
     let statusChangeReason = $state('');
@@ -35,6 +35,7 @@
     let rejectionPhotoFile = $state<File | null>(null);
     let rejectionPhotoPreview = $state<string | null>(null);
     let rejectionPhotoInputRef = $state<HTMLInputElement | null>(null);
+
 
     const canEdit = $derived.by(() => {
         if (!data.user || !data.request) return false;
@@ -76,7 +77,7 @@
                data.request.status === RequestStatus.Postponed;
     });
 
-    // Можно ли одобрить анонимную заявку
+    
     const canApproveAnonymous = $derived.by(() => {
         if (!data.user || !data.request) return false;
         return (data.user.role === Role.Admin || data.user.role === Role.HeadOfDepartment) && 
@@ -84,7 +85,7 @@
                data.request.status === RequestStatus.PendingCreationApproval;
     });
 
-    // Можно ли редактировать анонимную заявку перед апрувом
+    
     const canEditAnonymous = $derived.by(() => {
         if (!data.user || !data.request) return false;
         return (data.user.role === Role.Admin || data.user.role === Role.HeadOfDepartment) && 
@@ -143,10 +144,6 @@
         if (!data.request) return;
 
         
-        if (requestedStatus === RequestStatus.Completed && !statusChangePhotoFile) {
-            toast.error('Для завершения обязательно прикрепите фото');
-            return;
-        }
         if (requestedStatus === RequestStatus.Postponed && !statusChangeReason.trim()) {
             toast.error('Для отложения обязательно укажите причину');
             return;
@@ -396,8 +393,12 @@
 </script>
 
 <div class="max-w-4xl mx-auto p-4">
+    {#if pullState.isPulling || pullState.pullProgress > 0}
+        <div class="fixed top-0 left-0 right-0 h-1 bg-blue-500 z-50" style="width: {(pullState.pullProgress / PULL_THRESHOLD) * 100}%"></div>
+    {/if}
+    
     <BackButton />
-    <!-- Header with urgent indicator -->
+    
     <div class="mb-4 md:mb-6 {data.request.urgent ? 'bg-red-50 p-4 rounded-lg' : ''}">
         <div class="flex items-start gap-3 mb-3">
             <h1 class="text-2xl md:text-3xl font-bold flex-1">{data.request.title}</h1>
@@ -408,7 +409,7 @@
 
 
 
-        <!-- Status and Info -->
+        
         <div class="flex flex-wrap gap-3 mb-4">
             <span class="{getStatusColor(data.request.status)} text-white rounded-2xl px-4 py-1.5 text-sm font-medium">
                 {capitalizeFirstLetter(data.request.status)}
@@ -450,7 +451,7 @@
         </div>
     </div>
 
-    <!-- Pending Status Changes Section -->
+    
     {#if data.request.pending_status_changes && data.request.pending_status_changes.length > 0}
         <div class="mb-6 border-2 border-yellow-300 bg-yellow-50 rounded-lg p-4">
             <h2 class="text-lg md:text-xl font-semibold mb-3 text-yellow-800">Ожидает подтверждения</h2>
@@ -510,7 +511,7 @@
         </div>
     {/if}
 
-    <!-- History Section -->
+    
     {#if data.request.history && data.request.history.length > 0}
         <div class="mb-6">
             <h2 class="text-lg md:text-xl font-semibold mb-3">История изменений</h2>
@@ -533,7 +534,7 @@
         </div>
     {/if}
 
-    <!-- Photos Section (exclude photos with "выполненной работы" caption) -->
+    
     {#if data.request.photos && data.request.photos.length > 0}
         {@const filteredPhotos = data.request.photos.filter(p => !p.caption?.includes('выполненной работы'))}
         {#if filteredPhotos.length > 0}
@@ -546,7 +547,7 @@
         {#if data.request.description}
             <p class="text-gray-700 text-base leading-relaxed mb-4">{data.request.description}</p>
         {/if}
-    <!-- Actions -->
+    
     <div class="flex flex-wrap gap-2">
         {#if canEdit}
             <Button onclick={handleEditClick}>Редактировать</Button>
@@ -589,7 +590,7 @@
             </button>
         {/if}
 
-        <!-- Approve Anonymous Request Buttons -->
+        
         {#if canEditAnonymous}
             <button
                 onclick={handleEditClick}
@@ -619,7 +620,6 @@
     </div>
 </div>
 
-<!-- Status Change Modal (for Executor) -->
 <Modal
     bind:isOpen={showStatusChangeModal}
     title="Запрос на изменение статуса"
@@ -660,7 +660,7 @@
 
         {#if requestedStatus === RequestStatus.Completed}
             <div>
-                <label for="photo-input" class="block text-sm font-medium mb-2">Фото выполненной работы *</label>
+                <label for="photo-input" class="block text-sm font-medium mb-2">Фото выполненной работы (необязательно)</label>
                 <input
                     bind:this={photoInputRef}
                     id="photo-input"
@@ -687,7 +687,7 @@
     </div>
 </Modal>
 
-<!-- Rejection Modal (for Head of Department) -->
+
 <Modal
     bind:isOpen={showRejectionModal}
     title="Отклонение запроса"

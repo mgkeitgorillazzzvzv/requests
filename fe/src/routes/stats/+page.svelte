@@ -31,10 +31,19 @@
 	let selectedBuildingStr = $state('');
 	let selectedPeriodStr = $state('month');
 
+	const normalizeBuilding = (v: string | null) => {
+		if (!v) return v;
+		if (v === 'Коломенская') return 'Дизайн колледж';
+		if (v === 'Харьковский') return 'IT.Бирюлево';
+		if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
+		if (v === 'Судостроительная') return 'Центр городских технологий';
+		return v;
+	};
+
 	$effect(() => {
 		// For head of department, automatically use their building
 		if ($isHeadOfDepartment && $currentUser?.building && selectedBuildingStr === '') {
-			selectedBuildingStr = $currentUser.building as string;
+			selectedBuildingStr = normalizeBuilding($currentUser.building as string) as string;
 		}
 		selectedBuilding = selectedBuildingStr === '' ? null : (selectedBuildingStr as Building);
 		selectedPeriod = selectedPeriodStr as 'day' | 'week' | 'month';

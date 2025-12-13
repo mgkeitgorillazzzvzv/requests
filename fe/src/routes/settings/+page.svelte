@@ -5,7 +5,6 @@
 	import Button from '$lib/components/controls/Button.svelte';
 	import PushNotifications from '$lib/components/ui/PushNotifications.svelte';
 	import { showToast } from '$lib/stores/toast';
-	import { Role } from '$lib';
 	import { capitalizeFirstLetter, getFullName } from '$lib/util';
 	function handleLogout() {
 		authStore.logout();
@@ -18,6 +17,7 @@
 <div class="min-h-screen  px-4 py-6 md:py-8">
 	<div class="max-w-3xl mx-auto">
 		<h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Настройки</h1>
+		<p class="text-gray-600">Управляйте параметрами аккаунта и уведомлениями.</p>
 
 		<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
 			<h2 class="text-xl font-semibold text-gray-800 mb-4">Информация о пользователе</h2>

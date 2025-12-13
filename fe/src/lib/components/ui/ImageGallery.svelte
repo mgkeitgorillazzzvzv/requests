@@ -10,14 +10,14 @@
     let { photos }: Props = $props();
     let selectedIndex = $state<number | null>(null);
 
-    // Thumbnail URLs for grid view
+    
     let thumbnailUrls: Record<number, string | null> = $state({});
-    // Full resolution URLs
+    
     let fullUrls: Record<number, string | null> = $state({});
-    // Loading state for full images
+    
     let fullImageLoading: Record<number, boolean> = $state({});
 
-    // Load thumbnails first
+    
     const loadThumbnails = async () => {
         for (const photo of photos) {
             if (!thumbnailUrls[photo.id]) {
@@ -32,9 +32,9 @@
         }
     };
 
-    // Load full resolution image for lightbox
+    
     const loadFullImage = async (photoId: number) => {
-        if (fullUrls[photoId]) return; // Already loaded
+        if (fullUrls[photoId]) return; 
         
         fullImageLoading[photoId] = true;
         try {
@@ -50,7 +50,7 @@
 
     loadThumbnails();
 
-    // When image is selected, start loading full resolution
+    
     $effect(() => {
         if (selectedIndex !== null && photos[selectedIndex]) {
             loadFullImage(photos[selectedIndex].id);
@@ -99,7 +99,7 @@
         selectedIndex = null;
     };
 
-    // Get the best available URL for the lightbox
+    
     const getLightboxUrl = (photoId: number) => {
         return fullUrls[photoId] ?? thumbnailUrls[photoId] ?? '';
     };
@@ -140,7 +140,7 @@
         onclick={handleBackdropClick}
     >
         <div class="relative w-full h-full flex items-center justify-center p-4">
-            <!-- Close button -->
+            
             <button
                 onclick={() => (selectedIndex = null)}
                 class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 transition-colors z-10"
@@ -149,7 +149,7 @@
                 ✕
             </button>
 
-            <!-- Main image container -->
+            
             <div
                 role="button"
                 tabindex="0"
@@ -157,14 +157,14 @@
                 onkeydown={(e) => e.key === 'Enter' && e.stopPropagation()}
                 class="relative max-w-full max-h-[85vh] flex items-center justify-center"
             >
-                <!-- Thumbnail shown as blur while full image loads -->
+                
                 <img
                     src={getLightboxUrl(currentPhoto.id)}
                     alt=""
                     class="max-w-full max-h-[85vh] object-contain animate-in zoom-in-95 duration-200 transition-all {!isFullLoaded ? 'blur-sm scale-[0.99]' : ''}"
                 />
                 
-                <!-- Loading indicator -->
+                
                 {#if isLoading}
                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -172,7 +172,7 @@
                 {/if}
             </div>
 
-            <!-- Previous button -->
+            
             {#if selectedIndex > 0}
                 <button
                     onclick={(e) => {
@@ -186,7 +186,7 @@
                 </button>
             {/if}
 
-            <!-- Next button -->
+            
             {#if selectedIndex < photos.length - 1}
                 <button
                     onclick={(e) => {
@@ -200,7 +200,7 @@
                 </button>
             {/if}
 
-            <!-- Counter -->
+            
             <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm">
                 {selectedIndex + 1} / {photos.length}
             </div>

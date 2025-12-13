@@ -1,12 +1,36 @@
 /// <reference lib="webworker" />
 const sw = self;
 
-const CACHE_NAME = 'mgkeit-requests-v1';
+const CACHE_NAME = 'mgkeit-requests-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/16.png',
+  '/icons/20.png',
+  '/icons/29.png',
+  '/icons/32.png',
+  '/icons/40.png',
+  '/icons/50.png',
+  '/icons/57.png',
+  '/icons/58.png',
+  '/icons/60.png',
+  '/icons/64.png',
+  '/icons/72.png',
+  '/icons/76.png',
+  '/icons/80.png',
+  '/icons/87.png',
+  '/icons/100.png',
+  '/icons/114.png',
+  '/icons/120.png',
+  '/icons/128.png',
+  '/icons/144.png',
+  '/icons/152.png',
+  '/icons/167.png',
+  '/icons/180.png',
+  '/icons/192.png',
+  '/icons/256.png',
+  '/icons/512.png',
+  '/icons/1024.png'
 ];
 
 

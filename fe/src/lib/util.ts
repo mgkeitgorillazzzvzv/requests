@@ -13,6 +13,15 @@ export function formatDateWithoutSeconds(dateString: string): string {
     });
 }
 
+export function formatDateOnly(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
 export function getFullName(user: { first_name: string; last_name: string } | null | undefined): string {
     if (!user) {
         return 'Анонимная заявка';

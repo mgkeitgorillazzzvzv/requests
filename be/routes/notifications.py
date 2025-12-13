@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from pywebpush import webpush, WebPushException
@@ -101,7 +102,8 @@ async def send_push_notification(
     }
     
     try:
-        webpush(
+        await asyncio.to_thread(
+            webpush,
             subscription_info=subscription_info,
             data=json.dumps(notification_data),
             vapid_private_key=vapid_private_key,
@@ -114,7 +116,11 @@ async def send_push_notification(
         print(f"WebPush failed: {e}")
         
         if e.response and e.response.status_code in [404, 410]:
-            await subscription.delete()
+            try:
+                await subscription.delete()
+                print(f"Deleted invalid subscription: {subscription.endpoint}")
+            except Exception as delete_error:
+                print(f"Failed to delete subscription: {delete_error}")
         return False
 
 
@@ -130,20 +136,19 @@ async def notify_department_employees(
         department=department
     )
     
-    
-    for user in users:
-        subscriptions = await PushSubscription.filter(user_id=user.id)
-        for subscription in subscriptions:
-            print(f"Sending notification to {subscription.endpoint}")
-            await send_push_notification(subscription, payload)
+    await send_to_users(users, payload)
 
 
 async def send_to_users(users: List[User], payload: NotificationPayload):
     """Send notification to a list of users"""
+    tasks = []
     for user in users:
         subscriptions = await PushSubscription.filter(user_id=user.id)
         for subscription in subscriptions:
-            await send_push_notification(subscription, payload)
+            tasks.append(send_push_notification(subscription, payload))
+    
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def notify_request_created(request: RequestModel, creator: User):

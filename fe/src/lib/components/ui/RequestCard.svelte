@@ -7,7 +7,8 @@
     import building from "$lib/assets/building.svg";
     import department from "$lib/assets/department.svg";
     import {isMobile} from "$lib/platform"
-    import { capitalizeFirstLetter, getFullName } from "$lib/util";
+    import { capitalizeFirstLetter, getFullName, formatDateOnly } from "$lib/util";
+    import dateIcon from "$lib/assets/date.svg";
     
     let { request }: { request: RequestOut } = $props();
     let mobile = $state(false)
@@ -75,6 +76,12 @@
             {:else if request.is_anonymous}
                 <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
                     <div class="text-gray-500 italic text-sm md:text-lg">Анонимная заявка</div>
+                </div>
+            {/if}
+            {#if request.opened_at}
+                <div class="flex flex-row items-center gap-1 text-sm md:text-lg">
+                    <img src={dateIcon} alt="Дата создания" class="w-4 h-4 md:w-5 md:h-5" />
+                    <div class="text-gray-600 text-sm md:text-lg">{formatDateOnly(request.opened_at)}</div>
                 </div>
             {/if}
             {#if request.status === RequestStatus.Completed && request.closed_by}

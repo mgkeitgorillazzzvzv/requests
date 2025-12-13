@@ -1,9 +1,9 @@
 
 export enum Building {
-	Millionschikova = 'Миллионщикова',
-	Kolomenskaya = 'Коломенская',
-	Sudostroitelnaya = 'Судостроительная',
-	Kharkovskiy = 'Харьковский'
+	Millionschikova = 'Центр программирования и кибербезопасности',
+	Kolomenskaya = 'Дизайн колледж',
+	Sudostroitelnaya = 'Центр городских технологий',
+	Kharkovskiy = 'IT.Бирюлево'
 }
 
 export enum RequestStatus {
@@ -472,7 +472,7 @@ class APIClient {
 		);
 	}
 
-	// Anonymous Requests
+	
 	async createAnonymousRequest(data: CreateAnonymousRequestRequest | FormData): Promise<RequestOut> {
 		if (data instanceof FormData) {
 			const response = await fetch(`${this.baseURL}/requests/anonymous`, {
@@ -487,7 +487,7 @@ class APIClient {
 
 			return response.json();
 		} else {
-			// Без токена для анонимных запросов
+			
 			const response = await fetch(`${this.baseURL}/requests/anonymous`, {
 				method: 'POST',
 				headers: {

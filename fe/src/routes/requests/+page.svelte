@@ -1,11 +1,13 @@
 <script lang="ts">
 	import Button from "$lib/components/controls/Button.svelte";
+	import FAB from "$lib/components/ui/FAB.svelte";
 	import Dropdown from "$lib/components/controls/Dropdown.svelte";
 	import Entry from "$lib/components/controls/Entry.svelte";
 	import RequestCard from "$lib/components/ui/RequestCard.svelte";
 	import { api, RequestStatus, type RequestOut } from "$lib/api";
 	import { showToast } from "$lib/stores/toast";
 	import { canCreateRequests } from "$lib/stores/auth";
+	import { createPullToRefresh, attachPullToRefresh, PULL_THRESHOLD } from "$lib/utils/pullToRefresh";
 	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
 	import type { PageData } from "./$types";
@@ -21,6 +23,7 @@
 	let statusFilter = $state<'all' | RequestStatus>(RequestStatus.Created);
 	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 	let listContainer: HTMLDivElement | null = $state(null);
+	let pullState = $state({ pullProgress: 0, isPulling: false, touchStartY: 0 });
 
 	const LIMIT = 6;
 
@@ -104,8 +107,13 @@
 	onMount(() => {
 		fetchRequests(true);
 		window.addEventListener('scroll', handleScroll);
+		
+		const pullHandlers = createPullToRefresh(pullState, isLoading, () => fetchRequests(true));
+		const cleanup = attachPullToRefresh(pullHandlers);
+		
 		return () => {
 			window.removeEventListener('scroll', handleScroll);
+			cleanup();
 			if (searchTimeout) clearTimeout(searchTimeout);
 		};
 	});
@@ -116,6 +124,10 @@
 </script>
 
 <div class="max-w-5xl mx-auto p-4 flex flex-col gap-4">
+	{#if pullState.isPulling || pullState.pullProgress > 0}
+		<div class="fixed top-0 left-0 right-0 h-1 bg-blue-500 z-50" style="width: {(pullState.pullProgress / PULL_THRESHOLD) * 100}%"></div>
+	{/if}
+	
 	<div class="flex flex-col gap-2">
 		<div class="flex justify-between items-start gap-2">
 			<div class="flex flex-col gap-1">
@@ -123,12 +135,10 @@
 				<p class="text-gray-600">Просматривайте и фильтруйте заявки по статусу и названию.</p>
 			</div>
 			{#if $canCreateRequests}
-				<Button onclick={handleCreateRequest}>
-					Создать
-				</Button>
+				<!-- header button removed in favor of FAB for a cleaner UI -->
 			{/if}
 		</div>
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 			<Entry
 				bind:value={search}
 				placeholder="Поиск по заявкам"
@@ -140,9 +150,6 @@
 				aria-label="Фильтр по статусу"
 				placeholder="Все статусы"
 			/>
-			<Button onclick={fetchRequests} disabled={isLoading}>
-				{isLoading ? 'Обновление...' : 'Обновить список'}
-			</Button>
 		</div>
 	</div>
 
@@ -163,3 +170,7 @@
 		{/if}
 	{/if}
 </div>
+
+{#if $canCreateRequests}
+	<FAB onclick={handleCreateRequest} ariaLabel="Создать заявку" title="Создать заявку" text="Создать заявку" />
+{/if}
