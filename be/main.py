@@ -36,7 +36,7 @@ app.include_router(stats_router, prefix="/stats", tags=["stats"])
 
 @app.get("/version", tags=["system"])
 async def get_version():
-    """Get frontend version"""
+    
     try:
         version_path = os.path.join(os.path.dirname(__file__), 'version.txt')
         with open(version_path, 'r') as f:

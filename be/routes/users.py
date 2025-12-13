@@ -5,6 +5,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from models.tortoise import User
 from models.pydantic import CreateUserRequest, UpdateUserRequest, UserOut, Token
+from utils import user_to_out
+from permissions import (
+    can_create_user_in_building,
+    can_update_user,
+    is_admin,
+)
 from auth import (
 	verify_password,
 	get_password_hash,
@@ -16,17 +22,6 @@ from auth import (
 
 router = APIRouter()
 
-
-def user_to_out(user: User) -> UserOut:
-	return UserOut(
-		id=user.id,
-		username=user.username,
-		first_name=user.first_name,
-		last_name=user.last_name,
-		role=(user.role if hasattr(user.role, 'value') else user.role),
-		building=user.building,
-		department=user.department,
-	)
 
 
 @router.post("/login", response_model=Token)
@@ -42,11 +37,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 @router.post("/", response_model=UserOut)
 async def create_user(payload: CreateUserRequest, current_user: User = Depends(get_current_admin_or_head_user)):
 	
-	from models.enums import Role
-	if current_user.role == Role.HEAD:
-		
-		if payload.building != current_user.building:
-			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Head can only create users for their building")
+	if not can_create_user_in_building(current_user, payload.building):
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to create users for this building")
 	
 	existing = await User.get_or_none(username=payload.username)
 	if existing:
@@ -66,11 +58,10 @@ async def create_user(payload: CreateUserRequest, current_user: User = Depends(g
 
 @router.get("/", response_model=List[UserOut])
 async def list_users(current_user: User = Depends(get_current_admin_or_head_user)):
-	from models.enums import Role
-	if current_user.role == Role.ADMIN:
+	
+	if is_admin(current_user):
 		users = await User.all()
-	else:  
-		
+	else:
 		users = await User.filter(building=current_user.building)
 	return [user_to_out(u) for u in users]
 
@@ -98,11 +89,9 @@ async def update_user(
 	if not user:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-	from models.enums import Role
 	
-	if current_user.role == Role.HEAD:
-		if user.building != current_user.building:
-			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Head can only update users from their building")
+	if not can_update_user(current_user, user):
+		raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this user")
 
 	update_data = payload.dict(exclude_unset=True)
 
@@ -126,7 +115,7 @@ async def update_user(
 		user.role = update_data["role"]
 
 	if "building" in update_data and update_data["building"] != user.building:
-		if current_user.role != Role.ADMIN:
+		if not is_admin(current_user):
 			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admin can change user building")
 		user.building = update_data["building"]
 		

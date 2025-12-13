@@ -10,9 +10,25 @@ from PIL import Image, ExifTags
 from auth import get_current_user
 from models.enums import RequestStatus, Role, Building
 from models.tortoise import Request, User, RequestPhoto, RequestStatusChangeRequest, RequestHistory
+from utils import user_to_out
+from permissions import (
+    require_view_access,
+    require_edit_access,
+    require_delete_access,
+    can_create_request_in_building,
+    can_request_status_change,
+    can_review_status_change,
+    can_directly_change_status,
+    can_upload_photo_to_request,
+    can_delete_photo,
+    can_approve_anonymous_request,
+    is_admin,
+    is_head,
+    is_specialist,
+    is_executor,
+)
 from models.pydantic import (
-    CreateRequestRequest,
-    CreateAnonymousRequestRequest,
+
     UpdateRequestRequest,
     RequestOut,
     PhotoOut,
@@ -20,23 +36,12 @@ from models.pydantic import (
     ReviewStatusChangeRequest,
     StatusChangeRequestOut,
     RequestHistoryOut,
-    UserOut,
     PaginatedRequestsOut,
 )
 
 router = APIRouter()
 
 
-def user_to_out(user: User) -> UserOut:
-    return UserOut(
-        id=user.id,
-        username=user.username,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        role=(user.role if hasattr(user.role, 'value') else user.role),
-        building=user.building,
-        department=user.department,
-    )
 
 async def create_history_entry(
     request: Request,
@@ -46,7 +51,7 @@ async def create_history_entry(
     new_status: RequestStatus | None = None,
     details: str | None = None
 ):
-    """Helper to create history entry"""
+    
     await RequestHistory.create(
         request=request,
         action=action,
@@ -175,23 +180,16 @@ async def create_request(
     photos: List[UploadFile] = File(None),
     user: User = Depends(get_current_user)
 ) -> RequestOut:
-
-
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if building != user.building:
-            raise HTTPException(status_code=403, detail="Heads can only create requests in their building")
-    elif user.role == Role.SPECIALIST:
-        if building != user.building:
-            raise HTTPException(status_code=403, detail="Specialists can only create requests in their building")
-
+    
+    if not can_create_request_in_building(user, building):
+        raise HTTPException(status_code=403, detail="Not authorized to create requests in this building")
+    
+    
+    if is_specialist(user):
         if user.department:
             department = user.department
         else:
             raise HTTPException(status_code=400, detail="Specialist must have a department assigned")
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to create requests")
 
     request = await Request.create(
         title=title,
@@ -212,9 +210,8 @@ async def create_request(
         details=f"Request created by {user.first_name} {user.last_name}"
     )
 
-
+    
     from routes.notifications import notify_request_created
-    import asyncio
     asyncio.create_task(notify_request_created(request, user))
 
 
@@ -237,16 +234,16 @@ async def create_request(
                 )
 
 
-    # if department:
-    #     from routes.notifications import notify_department_employees, NotificationPayload
-    #     payload = NotificationPayload(
-    #         title=f"Новая заявка {department}",
-    #         body=f"{title}",
-    #         data={
-    #             "url": f"/requests/{request.id}",
-    #             "requestId": request.id
-    #         }
-    #     )
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 
 
@@ -263,7 +260,7 @@ async def create_anonymous_request(
     department: Optional[str] = Form(None),
     photos: List[UploadFile] = File(None),
 ) -> RequestOut:
-    """Создание анонимной заявки без авторизации. Попадает в статус PENDING_CREATION_APPROVAL"""
+    
     
     request = await Request.create(
         title=title,
@@ -300,7 +297,7 @@ async def approve_anonymous_request(
     request_id: int,
     user: User = Depends(get_current_user)
 ) -> RequestOut:
-    """Хед апрувает анонимную заявку и переводит её в статус CREATED"""
+    
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -311,21 +308,16 @@ async def approve_anonymous_request(
     if request.status != RequestStatus.PENDING_CREATION_APPROVAL:
         raise HTTPException(status_code=400, detail="Request is not pending approval")
     
-    # Проверяем права доступа
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to approve this request")
-    else:
-        raise HTTPException(status_code=403, detail="Only heads and admins can approve anonymous requests")
+    
+    if not can_approve_anonymous_request(user, request):
+        raise HTTPException(status_code=403, detail="Not authorized to approve anonymous requests")
     
     old_status = request.status
     request.status = RequestStatus.CREATED
-    request.opened_by_id = user.id  # Хед становится автором заявки
+    request.opened_by_id = user.id  
     await request.save()
     
-    # Создаем запись в истории
+    
     await create_history_entry(
         request=request,
         action="anonymous_request_approved",
@@ -348,13 +340,12 @@ async def list_requests(
     offset: int = 0,
     limit: int = 6
 ) -> PaginatedRequestsOut:
-
-    if user.role == Role.ADMIN:
+    
+    if is_admin(user):
         query = Request.filter(building=building) if building else Request.all()
-    elif user.role == Role.HEAD:
+    elif is_head(user):
         query = Request.filter(building=user.building)
-    elif user.role in (Role.SPECIALIST, Role.EXECUTOR):
-
+    elif is_specialist(user) or is_executor(user):
         if user.building and user.department:
             query = Request.filter(building=user.building, department=user.department)
         elif user.building:
@@ -367,7 +358,7 @@ async def list_requests(
     if status:
         query = query.filter(status=status)
 
-    # Search filter
+    
     if search:
         from tortoise.expressions import Q
         search_term = f"%{search}%"
@@ -401,43 +392,21 @@ async def get_request(request_id: int, user: User = Depends(get_current_user)) -
     request = await Request.filter(id=request_id).prefetch_related('opened_by', 'closed_by', 'photos').first()
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
-
-    if user.role == Role.ADMIN:
-        return await request_to_out(request)
-
-    if user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        return await request_to_out(request)
-
-    if user.role == Role.SPECIALIST:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        return await request_to_out(request)
-
-    if user.role == Role.EXECUTOR:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        return await request_to_out(request)
-
-    raise HTTPException(status_code=403, detail="Not authorized to view this request")
+    
+    
+    require_view_access(user, request)
+    
+    return await request_to_out(request)
 
 @router.delete("/{request_id}")
 async def delete_request(request_id: int, user: User = Depends(get_current_user)):
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this request")
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this request")
+    
+    
+    require_delete_access(user, request)
+    
     await request.delete()
     return {"detail": "Request deleted"}
 
@@ -446,17 +415,16 @@ async def update_request(request_id: int, payload: UpdateRequestRequest, user: U
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
-    if user.role not in (Role.ADMIN, Role.HEAD):
-        raise HTTPException(status_code=403, detail="Not authorized to update this request")
-    if user.role == Role.HEAD and request.building != user.building:
-        raise HTTPException(status_code=403, detail="Not authorized to update this request")
+    
+    
+    require_edit_access(user, request)
 
     if payload.title is not None and payload.title != request.title:
         request.title = payload.title
     if payload.description is not None and payload.description != request.description:
         request.description = payload.description
     if payload.building is not None and payload.building != request.building:
-        if user.role != Role.ADMIN:
+        if not is_admin(user):
             raise HTTPException(status_code=403, detail="Only admin can change request building")
         request.building = payload.building
     if payload.department is not None and payload.department != request.department:
@@ -470,21 +438,14 @@ async def update_request(request_id: int, payload: UpdateRequestRequest, user: U
 
 @router.put("/{request_id}/status")
 async def update_request_status(request_id: int, status: RequestStatus, user: User = Depends(get_current_user)):
-    """DEPRECATED: Use status change requests instead. This is kept for direct admin/head changes only."""
+    
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
-
-    if user.role == Role.ADMIN:
-        allowed = True
-    elif user.role == Role.HEAD:
-        allowed = user.building == request.building
-    else:
+    
+    if not can_directly_change_status(user, request):
         raise HTTPException(status_code=403, detail="Not authorized. Use status change requests instead.")
-
-    if not allowed:
-        raise HTTPException(status_code=403, detail="Not authorized to update this request")
 
     old_status = request.status
     request.status = status
@@ -515,22 +476,16 @@ async def create_status_change_request(
     payload: CreateStatusChangeRequest,
     user: User = Depends(get_current_user)
 ) -> StatusChangeRequestOut:
-    """Executor or Specialist creates a request to change status (to COMPLETED or POSTPONED)"""
+    
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
+    
+    if not can_request_status_change(user, request):
+        raise HTTPException(status_code=403, detail="Not authorized to request status change for this request")
 
-    if user.role not in (Role.EXECUTOR, Role.SPECIALIST):
-        raise HTTPException(status_code=403, detail="Only executors and specialists can create status change requests")
-
-
-    if request.building != user.building:
-        raise HTTPException(status_code=403, detail="Not authorized for this building")
-    if user.department and request.department != user.department:
-        raise HTTPException(status_code=403, detail="Not authorized for this department")
-
-
+    
     if payload.requested_status not in (RequestStatus.COMPLETED, RequestStatus.POSTPONED):
         raise HTTPException(status_code=400, detail="Can only request COMPLETED or POSTPONED status")
 
@@ -562,9 +517,8 @@ async def create_status_change_request(
         details=f"{user.first_name} {user.last_name} requested status change to {payload.requested_status.value}"
     )
 
-
+    
     from routes.notifications import notify_status_change_requested
-    import asyncio
     asyncio.create_task(notify_status_change_requested(request, user))
 
 
@@ -603,7 +557,7 @@ async def review_status_change_request(
     payload: ReviewStatusChangeRequest,
     user: User = Depends(get_current_user)
 ) -> RequestOut:
-    """Head of department reviews and approves/rejects a status change request"""
+    
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -612,15 +566,11 @@ async def review_status_change_request(
     if not change_request:
         raise HTTPException(status_code=404, detail="Status change request not found")
 
+    
+    if not can_review_status_change(user, request):
+        raise HTTPException(status_code=403, detail="Not authorized to review status change requests for this request")
 
-    if user.role not in (Role.HEAD, Role.ADMIN):
-        raise HTTPException(status_code=403, detail="Only head of department can review status change requests")
-
-
-    if request.building != user.building and user.role != Role.ADMIN:
-        raise HTTPException(status_code=403, detail="Not authorized for this building")
-
-
+    
     if change_request.approved is not None:
         raise HTTPException(status_code=400, detail="This request has already been reviewed")
 
@@ -649,9 +599,8 @@ async def review_status_change_request(
             details=f"{user.first_name} {user.last_name} approved status change to {change_request.requested_status.value}"
         )
 
-
+        
         from routes.notifications import notify_status_change_approved
-        import asyncio
         asyncio.create_task(notify_status_change_approved(request, change_request.requested_status))
     else:
 
@@ -681,9 +630,8 @@ async def review_status_change_request(
             details=details
         )
 
-
+        
         from routes.notifications import notify_status_change_rejected
-        import asyncio
         asyncio.create_task(notify_status_change_rejected(
             request,
             change_request.requested_by,
@@ -703,7 +651,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 def save_upload_file(upload_file: UploadFile) -> str:
-    """Save uploaded file and return file path"""
+    
     file_extension = os.path.splitext(upload_file.filename)[1] if upload_file.filename else ".jpg"
     filename = f"{uuid.uuid4()}{file_extension}"
     file_path = os.path.join(UPLOAD_DIR, filename)
@@ -723,28 +671,15 @@ async def upload_photo(
     order: int = Form(0),
     user: User = Depends(get_current_user)
 ):
-
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
+    
+    if not can_upload_photo_to_request(user, request):
+        raise HTTPException(status_code=403, detail="Not authorized to upload photos to this request")
 
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to upload to this request")
-    elif user.role in (Role.SPECIALIST, Role.EXECUTOR):
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to upload to this request")
-
-
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to upload to this request")
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to upload to this request")
-
-
+    
     if file.content_type not in ["image/jpeg", "image/png", "image/jpg", "image/webp"]:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
 
@@ -770,29 +705,12 @@ async def upload_photo(
 
 @router.get("/{request_id}/photos", response_model=List[PhotoOut])
 async def get_request_photos(request_id: int, user: User = Depends(get_current_user)):
-
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
-
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-    elif user.role == Role.SPECIALIST:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-    elif user.role == Role.EXECUTOR:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to view this request")
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to view this request")
+    
+    require_view_access(user, request)
 
     photos = await RequestPhoto.filter(request_id=request_id).order_by('order', 'uploaded_at')
 
@@ -809,9 +727,9 @@ async def get_request_photos(request_id: int, user: User = Depends(get_current_u
 
 
 def generate_thumbnail(file_path: str, max_size: int = 200, quality: int = 60) -> bytes:
-    """Generate a thumbnail from an image file"""
+    
     with Image.open(file_path) as img:
-        # Apply EXIF orientation to fix rotated images
+        
         try:
             for orientation in ExifTags.TAGS.keys():
                 if ExifTags.TAGS[orientation] == 'Orientation':
@@ -826,17 +744,17 @@ def generate_thumbnail(file_path: str, max_size: int = 200, quality: int = 60) -
                 elif orientation_value == 8:
                     img = img.rotate(90, expand=True)
         except (AttributeError, KeyError, IndexError, TypeError):
-            # No EXIF data or orientation tag
+            
             pass
 
-        # Convert to RGB if necessary (for PNG with transparency)
+        
         if img.mode in ('RGBA', 'P'):
             img = img.convert('RGB')
 
-        # Calculate thumbnail size maintaining aspect ratio
+        
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 
-        # Save to bytes
+        
         buffer = io.BytesIO()
         img.save(buffer, format='JPEG', quality=quality, optimize=True)
         buffer.seek(0)
@@ -844,25 +762,9 @@ def generate_thumbnail(file_path: str, max_size: int = 200, quality: int = 60) -
 
 
 async def check_photo_access(photo: RequestPhoto, user: User):
-    """Check if user has access to view the photo"""
+    
     request = photo.request
-    if user.role == Role.ADMIN:
-        return True
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this photo")
-    elif user.role == Role.SPECIALIST:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this photo")
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to view this photo")
-    elif user.role == Role.EXECUTOR:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to view this photo")
-        if user.department and request.department != user.department:
-            raise HTTPException(status_code=403, detail="Not authorized to view this photo")
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to view this photo")
+    require_view_access(user, request)
     return True
 
 
@@ -872,7 +774,7 @@ async def get_photo_thumbnail(
     user: User = Depends(get_current_user),
     size: int = Query(200, ge=50, le=500, description="Max thumbnail size")
 ):
-    """Get a low-resolution thumbnail of the photo"""
+    
     photo = await RequestPhoto.filter(id=photo_id).prefetch_related('request').first()
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -890,7 +792,7 @@ async def get_photo_thumbnail(
             headers={"Cache-Control": "public, max-age=86400"}
         )
     except Exception as e:
-        # Fallback to original file if thumbnail generation fails
+        
         return FileResponse(photo.file_path)
 
 
@@ -914,15 +816,10 @@ async def delete_photo(photo_id: int, user: User = Depends(get_current_user)):
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
 
-
+    
     request = photo.request
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to delete photos")
+    if not can_delete_photo(user, request):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
 
 
     if os.path.exists(photo.file_path):
@@ -939,24 +836,18 @@ async def return_postponed_to_work(
     request_id: int,
     user: User = Depends(get_current_user)
 ) -> RequestOut:
-    """Return a postponed request back to 'created' status"""
+    
     request = await Request.get_or_none(id=request_id)
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
-
+    
     if request.status != RequestStatus.POSTPONED:
         raise HTTPException(status_code=400, detail="Only postponed requests can be returned to work")
 
-
-    if user.role == Role.ADMIN:
-        pass
-    elif user.role == Role.HEAD:
-        if request.building != user.building:
-            raise HTTPException(status_code=403, detail="Not authorized to modify this request")
-    else:
+    
+    if not can_directly_change_status(user, request):
         raise HTTPException(status_code=403, detail="Not authorized to return requests to work")
-
 
     old_status = request.status
     request.status = RequestStatus.CREATED
@@ -974,9 +865,8 @@ async def return_postponed_to_work(
         details=f"{user.first_name} {user.last_name} вернул заявку в работу"
     )
 
-
+    
     from routes.notifications import notify_request_returned_to_work
-    import asyncio
     asyncio.create_task(notify_request_returned_to_work(request, user))
 
 

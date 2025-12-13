@@ -30,8 +30,7 @@ async def subscribe_to_notifications(
     subscription: SubscribeRequest,
     user: User = Depends(get_current_user)
 ):
-    """Subscribe user to push notifications"""
-    
+        
     existing = await PushSubscription.get_or_none(
         user_id=user.id,
         endpoint=subscription.endpoint
@@ -60,7 +59,6 @@ async def unsubscribe_from_notifications(
     subscription: SubscribeRequest,
     user: User = Depends(get_current_user)
 ):
-    """Unsubscribe user from push notifications"""
     deleted = await PushSubscription.filter(
         user_id=user.id,
         endpoint=subscription.endpoint
@@ -76,7 +74,6 @@ async def send_push_notification(
     subscription: PushSubscription,
     payload: NotificationPayload
 ) -> bool:
-    """Send push notification to a specific subscription"""
     vapid_private_key = os.getenv("VAPID_PRIVATE_KEY")
     vapid_public_key = os.getenv("VAPID_PUBLIC_KEY")
     vapid_email = os.getenv("VAPID_EMAIL", "mailto:admin@example.com")
@@ -129,8 +126,7 @@ async def notify_department_employees(
     building: Building,
     payload: NotificationPayload
 ):
-    """Send notification to all employees of a department in a specific building"""
-    
+        
     users = await User.filter(
         building=building,
         department=department
@@ -140,7 +136,6 @@ async def notify_department_employees(
 
 
 async def send_to_users(users: List[User], payload: NotificationPayload):
-    """Send notification to a list of users"""
     tasks = []
     for user in users:
         subscriptions = await PushSubscription.filter(user_id=user.id)
@@ -152,12 +147,12 @@ async def send_to_users(users: List[User], payload: NotificationPayload):
 
 
 async def notify_request_created(request: RequestModel, creator: User):
-    """
-    Уведомление о создании заявки отправляется всем, кто может просмотреть её:
-    - Администратор (все заявки)
-    - Заведующий (заявки на своей площадке)
-    - Специалисты и исполнители (заявки своего отдела на своей площадке)
-    """
+    
+
+
+
+
+
     target_users = []
     
     
@@ -197,10 +192,10 @@ async def notify_request_created(request: RequestModel, creator: User):
 
 
 async def notify_status_change_requested(request: RequestModel, executor: User):
-    """
-    Уведомление о том, что заявка ожидает подтверждения (pending approval)
-    Отправляется только администраторам и руководителям площадки
-    """
+    
+
+
+
     target_users = []
     
     
@@ -228,11 +223,11 @@ async def notify_status_change_requested(request: RequestModel, executor: User):
 
 
 async def notify_status_change_approved(request: RequestModel, approved_status: RequestStatus):
-    """
-    Уведомление об изменении статуса при подтверждении:
-    - "выполнено" -> всем, кто может просмотреть
-    - "отложено" -> админу
-    """
+    
+
+
+
+
     target_users = []
     
     if approved_status == RequestStatus.COMPLETED:
@@ -288,10 +283,10 @@ async def notify_status_change_rejected(
     requester: User,
     rejection_reason: Optional[str] = None
 ):
-    """
-    Уведомление при отклонении запроса на изменение статуса:
-    Отправляется автору запроса и админам
-    """
+    
+
+
+
     target_users = []
     
     
@@ -319,10 +314,10 @@ async def notify_status_change_rejected(
 
 
 async def notify_request_returned_to_work(request: RequestModel, user: User):
-    """
-    Уведомление о возврате отложенной заявки в работу.
-    Отправляется всем, кто может просмотреть заявку (кроме того, кто вернул)
-    """
+    
+
+
+
     target_users = []
     
     

@@ -78,7 +78,7 @@ class PushSubscription(models.Model):
 
 
 class RequestStatusChangeRequest(models.Model):
-	"""Запрос на изменение статуса заявки (от исполнителя к заведующему)"""
+	
 	id = fields.IntField(pk=True)
 	request = fields.ForeignKeyField("models.Request", related_name="status_change_requests", on_delete=fields.CASCADE)
 	requested_by = fields.ForeignKeyField("models.User", related_name="status_changes_requested", on_delete=fields.CASCADE)
@@ -100,7 +100,7 @@ class RequestStatusChangeRequest(models.Model):
 
 
 class RequestHistory(models.Model):
-	"""История изменений заявки"""
+	
 	id = fields.IntField(pk=True)
 	request = fields.ForeignKeyField("models.Request", related_name="history", on_delete=fields.CASCADE)
 	action = fields.CharField(max_length=255)  

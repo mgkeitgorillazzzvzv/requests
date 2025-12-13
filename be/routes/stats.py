@@ -19,21 +19,21 @@ async def get_stats(
     period: str = Query("month", regex="^(day|week|month)$"),
     user: User = Depends(get_current_user)
 ) -> StatsOut:
-    """
-    Get statistics for requests with optional filters:
-    - building: filter by building
-    - department: filter by department (IT or АХЧ)
-    - period: time period (day, week, month)
     
-    For head of department: automatically filters by their building and department
-    """
+
+
+
+
+
+
+
     
-    # For head of department: use their building from profile (they see all departments in their building)
+    
     if user.role == Role.HEAD:
         if not user.building:
             raise HTTPException(status_code=400, detail="У руководителя отделения должен быть указан корпус")
         building = user.building
-        # HEAD sees all departments in their building, so don't filter by department unless explicitly requested
+        
     
     now = datetime.utcnow()
     if period == "day":

@@ -75,28 +75,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 
 
 async def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
-    try:
-        role = current_user.role
-        if hasattr(role, "value"):
-            is_admin = role == Role.ADMIN
-        else:
-            is_admin = str(role) == Role.ADMIN.value
-    except Exception:
-        is_admin = False
-    if not is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Requires administrator role")
+    from permissions import require_admin
+    require_admin(current_user)
     return current_user
 
 
 async def get_current_admin_or_head_user(current_user: User = Depends(get_current_user)) -> User:
-    try:
-        role = current_user.role
-        if hasattr(role, "value"):
-            is_authorized = role in (Role.ADMIN, Role.HEAD)
-        else:
-            is_authorized = str(role) in (Role.ADMIN.value, Role.HEAD.value)
-    except Exception:
-        is_authorized = False
-    if not is_authorized:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Requires administrator or head of department role")
+    from permissions import require_admin_or_head
+    require_admin_or_head(current_user)
     return current_user
