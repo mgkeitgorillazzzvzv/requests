@@ -4,7 +4,8 @@
     import Dropdown from "$lib/components/controls/Dropdown.svelte";
     import Toggle from "$lib/components/controls/Toggle.svelte";
     import {toast} from "$lib/stores/toast";
-    import { Department, Building, api, Role } from "$lib/api";
+    import { Department, Building, api, Role, buildingOptions, departmentOptions } from "$lib/api";
+    import { normalizeBuilding } from "$lib/util";
     import { onMount } from "svelte";
     import { currentUser } from "$lib/stores/auth";
     import { goto } from "$app/navigation";
@@ -90,16 +91,6 @@
 
     
     onMount(() => {
-        const normalizeBuilding = (v: string | null) => {
-            if (!v) return v;
-            if (v === 'Коломенская') return 'Дизайн колледж';
-            if (v === 'Харьковский') return 'IT.Бирюлево';
-            if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
-            if (v === 'Судостроительная') return 'Центр городских технологий';
-            return v;
-        };
-
-        
         const unsubscribe = currentUser.subscribe(user => {
             if (user) {
                 userRole = user.role;
@@ -149,12 +140,7 @@
     {#if isAdmin}
         <Dropdown
             bind:value={building}
-            options={[
-                { label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
-                { label: 'Дизайн колледж', value: Building.Kolomenskaya },
-                { label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
-                { label: 'IT.Бирюлево', value: Building.Kharkovskiy },
-            ]}
+            options={buildingOptions}
             placeholder="Выберите корпус"
             disabled={isSubmitting}
         />
@@ -162,9 +148,7 @@
     
     <Dropdown
         bind:value={department}
-        options={[
-        { label: 'АХЧ', value: Department.Maintenance },{label: 'IT', value: Department.IT}
-        ]}
+        options={departmentOptions}
         placeholder="Выберите отдел"
         disabled={isSubmitting}
     />

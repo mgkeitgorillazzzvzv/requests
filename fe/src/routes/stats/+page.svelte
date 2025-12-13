@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, Building, Department, type StatsOut } from '$lib/api';
+	import { api, Building, Department, buildingOptions, type StatsOut } from '$lib/api';
+	import { normalizeBuilding } from '$lib/util';
 	import Dropdown from '$lib/components/controls/Dropdown.svelte';
 	import Button from '$lib/components/controls/Button.svelte';
 	import { showToast } from '$lib/stores/toast';
@@ -14,12 +15,9 @@
 	let maintenanceStats = $state<StatsOut | null>(null);
 	let loading = $state(false);
 
-	const buildingOptions = [
+	const statsBuildings = [
 		{ value: '', label: 'Все корпуса' },
-		{ value: Building.Millionschikova, label: Building.Millionschikova },
-		{ value: Building.Kolomenskaya, label: Building.Kolomenskaya },
-		{ value: Building.Sudostroitelnaya, label: Building.Sudostroitelnaya },
-		{ value: Building.Kharkovskiy, label: Building.Kharkovskiy }
+		...buildingOptions
 	];
 
 	const periodOptions = [
@@ -30,15 +28,6 @@
 
 	let selectedBuildingStr = $state('');
 	let selectedPeriodStr = $state('month');
-
-	const normalizeBuilding = (v: string | null) => {
-		if (!v) return v;
-		if (v === 'Коломенская') return 'Дизайн колледж';
-		if (v === 'Харьковский') return 'IT.Бирюлево';
-		if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
-		if (v === 'Судостроительная') return 'Центр городских технологий';
-		return v;
-	};
 
 	$effect(() => {
 		// For head of department, automatically use their building
@@ -97,12 +86,6 @@
 		return `${(ratio * 100).toFixed(1)}%`;
 	}
 
-	function StatCard({ label, value }: { label: string; value: string | number }) {
-		return `<div class="bg-gray-50 rounded-lg p-4">
-			<div class="text-sm text-gray-600 font-medium">${label}</div>
-			<div class="text-2xl font-bold text-blue-600">${value}</div>
-		</div>`;
-	}
 </script>
 
 <div class="min-h-screen px-4 py-6 md:py-8">
@@ -117,7 +100,7 @@
 		<div class="grid grid-cols-1 md:grid-cols-{$isHeadOfDepartment ? '2' : '3'} gap-3 mb-6">
 			{#if !$isHeadOfDepartment}
 				<Dropdown
-					options={buildingOptions}
+					options={statsBuildings}
 					bind:value={selectedBuildingStr}
 					aria-label="Фильтр по корпусу"
 					placeholder="Все корпуса"

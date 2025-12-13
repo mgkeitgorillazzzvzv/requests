@@ -25,6 +25,21 @@ export enum Department {
     IT = 'IT',
     Maintenance = 'АХЧ',
 }
+
+// Опции для выбора корпусов в UI
+export const buildingOptions = [
+	{ label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
+	{ label: 'Дизайн колледж', value: Building.Kolomenskaya },
+	{ label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
+	{ label: 'IT.Бирюлево', value: Building.Kharkovskiy }
+];
+
+// Опции для выбора отделов в UI
+export const departmentOptions = [
+	{ label: 'АХЧ', value: Department.Maintenance },
+	{ label: 'IT', value: Department.IT }
+];
+
 export interface Token {
 	access_token: string;
 	token_type: string;

@@ -28,3 +28,11 @@ export function getFullName(user: { first_name: string; last_name: string } | nu
     }
     return `${user.first_name} ${user.last_name}`.trim();
 }
+export function normalizeBuilding(value: string | null): string | null {
+    if (!value) return value;
+    if (value === 'Коломенская') return 'Дизайн колледж';
+    if (value === 'Харьковский') return 'IT.Бирюлево';
+    if (value === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
+    if (value === 'Судостроительная') return 'Центр городских технологий';
+    return value;
+}

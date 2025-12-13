@@ -6,7 +6,8 @@
     import Modal from "$lib/components/ui/Modal.svelte";
     import BackButton from "$lib/components/ui/BackButton.svelte";
     import {toast} from "$lib/stores/toast";
-    import { Department, Building, Role, api } from "$lib/api";
+    import { Department, Building, Role, api, buildingOptions } from "$lib/api";
+    import { normalizeBuilding } from "$lib/util";
     import { goto } from "$app/navigation";
     import { onMount, onDestroy } from "svelte";
     import type { PageData } from "./$types";
@@ -23,26 +24,11 @@
     
     let thumbnailUrls: Record<number, string | null> = $state({});
 
-    const buildingOptions = [
-        { label: 'Дизайн колледж', value: Building.Kolomenskaya },
-        { label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
-        { label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
-        { label: 'IT.Бирюлево', value: Building.Kharkovskiy }
-    ];
-
     onMount(() => {
         if (data?.request) {
             title = data.request.title;
             description = data.request.description || '';
             department = (data.request.department as Department) || Department.Maintenance;
-            const normalizeBuilding = (v: string | null) => {
-                if (!v) return v;
-                if (v === 'Коломенская') return 'Дизайн колледж';
-                if (v === 'Харьковский') return 'IT.Бирюлево';
-                if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
-                if (v === 'Судостроительная') return 'Центр городских технологий';
-                return v;
-            };
             building = normalizeBuilding(data.request.building as string) as Building;
             urgent = data.request.urgent || false;
         }

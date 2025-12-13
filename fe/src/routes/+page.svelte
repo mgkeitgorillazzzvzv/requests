@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { api, Building, Department } from '$lib/api';
+	import { api, Building, Department, buildingOptions, departmentOptions } from '$lib/api';
+	import { normalizeBuilding } from '$lib/util';
 	import Button from '$lib/components/controls/Button.svelte';
 	import Entry from '$lib/components/controls/Entry.svelte';
 	import Dropdown from '$lib/components/controls/Dropdown.svelte';
@@ -21,14 +22,6 @@
 			goto('/requests');
 		}
 		
-		const normalizeBuilding = (v: string | null) => {
-			if (!v) return v;
-			if (v === 'Коломенская') return 'Дизайн колледж';
-			if (v === 'Харьковский') return 'IT.Бирюлево';
-			if (v === 'Миллионщикова') return 'Центр программирования и кибербезопасности';
-			if (v === 'Судостроительная') return 'Центр городских технологий';
-			return v;
-		};
 		const savedBuilding = normalizeBuilding(localStorage.getItem('selectedBuilding'));
 		const savedDepartment = localStorage.getItem('selectedDepartment');
 		
@@ -52,18 +45,6 @@
 			localStorage.setItem('selectedDepartment', department);
 		}
 	});
-	
-	const buildingOptions = [
-		{ label: 'Центр программирования и кибербезопасности', value: Building.Millionschikova },
-		{ label: 'Дизайн колледж', value: Building.Kolomenskaya },
-		{ label: 'Центр городских технологий', value: Building.Sudostroitelnaya },
-		{ label: 'IT.Бирюлево', value: Building.Kharkovskiy }
-	];
-	
-	const departmentOptions = [
-		{ label: 'АХЧ', value: Department.Maintenance },
-		{ label: 'IT', value: Department.IT }
-	];
 	
 	const handleFileInput = (event: Event) => {
 		const target = event.target as HTMLInputElement;
