@@ -8,7 +8,7 @@
 	import { showToast } from '$lib/stores/toast';
 	import { isAuthenticated } from '$lib/stores/auth';
 	import { onMount } from 'svelte';
-	
+	import { isPWA } from '$lib';
 	let title = $state('');
 	let description = $state('');
 	let building = $state<Building>(Building.Millionschikova);
@@ -18,8 +18,8 @@
 	let isSubmitting = $state(false);
 	
 	onMount(() => {
-		if ($isAuthenticated) {
-			goto('/requests');
+		if ($isAuthenticated || isPWA()) {
+			goto('/requests', { replaceState: true });
 		}
 		
 		const savedBuilding = normalizeBuilding(localStorage.getItem('selectedBuilding'));

@@ -1,3 +1,5 @@
+import { get } from "svelte/store";
+import { pushNotifications } from "./stores/push";
 
 export type UserOS = 'ios' | 'android' | 'macos' | 'windows' | 'linux' | 'chromebook' | 'unknown';
 
@@ -85,4 +87,14 @@ export function getPlatformInfo(options: PlatformOptions = {}) {
 export function isMobile(options: PlatformOptions = {}): boolean {
     const os = getOS(options);
     return os === 'ios' || os === 'android';
+}
+
+export function isPWA() {
+    return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    (window.navigator as any).standalone === true ||
+    (get(pushNotifications).supported && getPlatformInfo().os === 'ios') // на ios push поддерживается только в PWA
+  );
+
 }

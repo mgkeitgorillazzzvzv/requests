@@ -7,9 +7,7 @@
 	import Entry from '$lib/components/controls/Entry.svelte';
 	import { showToast } from '$lib/stores/toast';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import { pushNotifications } from '$lib/stores/push';
 	import { fade } from 'svelte/transition';
-    import { get } from 'svelte/store';
 	import logo from '$lib/assets/logo.svg';
 
 	import menu26 from '$lib/assets/tutorial/26/menu.jpeg';
@@ -28,19 +26,17 @@
 	import addtohomescreenPre26 from '$lib/assets/tutorial/pre26/addtohomescreen.jpg';
 
 	import notifications from '$lib/assets/tutorial/notifications.jpg';
-
+	import { isPWA } from '$lib';
 	let username = $state('');
 	let password = $state('');
 	let isLoading = $state(false);
     let platformInfo = $state<{ os: string; major: number | null; } | null>(null);
-	let pushSupported = $state(false);
 	let showTutorial = $state(false);
 	let shouldShowTutorialButton = $state(false);
 
 	onMount(() => {
 		platformInfo = getPlatformInfo();
-		pushSupported = get(pushNotifications).supported;
-		showTutorial = (!pushSupported  && platformInfo?.os == 'ios') || platformInfo?.os == 'android';
+		showTutorial = !isPWA()
 		shouldShowTutorialButton = showTutorial;
 		const unsubscribe = isAuthenticated.subscribe(value => {
 			if (value) {
