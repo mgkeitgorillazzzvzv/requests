@@ -339,26 +339,26 @@
                 if (historyItem.old_status && historyItem.new_status) {
                     const oldStatusRu = getStatusNameInRussian(historyItem.old_status);
                     const newStatusRu = getStatusNameInRussian(historyItem.new_status);
-                    return `${userName} изменил статус с "${oldStatusRu}" на "${newStatusRu}"`;
+                    return `${userName} изменил(а) статус с "${oldStatusRu}" на "${newStatusRu}"`;
                 }
                 return `${userName} изменил статус`;
             
             case 'status_change_requested':
                 if (historyItem.new_status) {
                     const newStatusRu = getStatusNameInRussian(historyItem.new_status);
-                    return `${userName} запросил изменение статуса на "${newStatusRu}"`;
+                    return `${userName} запросил(а) изменение статуса на "${newStatusRu}"`;
                 }
-                return `${userName} запросил изменение статуса`;
+                return `${userName} запросил(а) изменение статуса`;
             
             case 'status_change_approved':
                 if (historyItem.new_status) {
                     const newStatusRu = getStatusNameInRussian(historyItem.new_status);
-                    return `${userName} подтвердил изменение статуса на "${newStatusRu}"`;
+                    return `${userName} подтвердил(а) изменение статуса на "${newStatusRu}"`;
                 }
-                return `${userName} подтвердил изменение статуса`;
+                return `${userName} подтвердил(а) изменение статуса`;
             
             case 'status_change_rejected':
-                return `${userName} отклонил запрос на изменение статуса`;
+                return `${userName} отклонил(а) запрос на изменение статуса`;
             
             case 'anonymous_request_approved':
                 if (historyItem.new_status) {
@@ -368,7 +368,7 @@
                 return `${userName} одобрил(а) анонимную заявку`;
             
             default:
-                return `${userName} выполнил действие: ${historyItem.action}`;
+                return `${userName} выполнил(а) действие: ${historyItem.action}`;
         }
     };
 

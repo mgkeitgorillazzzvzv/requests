@@ -49,7 +49,7 @@
     onMount(() => {
         fetchUsers();
         
-        const pullHandlers = createPullToRefresh(pullState, isLoading, () => fetchUsers());
+        const pullHandlers = createPullToRefresh(pullState, () => isLoading, () => fetchUsers());
         const cleanup = attachPullToRefresh(pullHandlers);
         
         return () => {

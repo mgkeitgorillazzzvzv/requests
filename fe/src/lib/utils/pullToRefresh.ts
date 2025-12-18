@@ -15,7 +15,7 @@ export interface PullToRefreshHandlers {
 
 export function createPullToRefresh(
 	state: PullToRefreshState,
-	isLoading: boolean,
+	getIsLoading: () => boolean,
 	onRefresh: () => void | Promise<void>
 ): PullToRefreshHandlers {
 	const handleTouchStart = (e: TouchEvent) => {
@@ -31,15 +31,17 @@ export function createPullToRefresh(
 		const touchCurrentY = e.touches[0].clientY;
 		const diff = touchCurrentY - state.touchStartY;
 
-		if (diff > 0 && !isLoading) {
-			e.preventDefault();
+		if (diff > 0 && !getIsLoading()) {
+			if (e.cancelable) {
+				e.preventDefault();
+			}
 			state.isPulling = true;
 			state.pullProgress = Math.min(diff, PULL_THRESHOLD);
 		}
 	};
 
 	const handleTouchEnd = () => {
-		if (state.pullProgress >= PULL_THRESHOLD && !isLoading) {
+		if (state.pullProgress >= PULL_THRESHOLD && !getIsLoading()) {
 			onRefresh();
 		}
 		state.pullProgress = 0;
@@ -55,13 +57,15 @@ export function createPullToRefresh(
 
 
 export function attachPullToRefresh(handlers: PullToRefreshHandlers): () => void {
+	const touchMoveOptions: AddEventListenerOptions = { passive: false };
+
 	document.addEventListener('touchstart', handlers.handleTouchStart);
-	document.addEventListener('touchmove', handlers.handleTouchMove, { passive: true });
+	document.addEventListener('touchmove', handlers.handleTouchMove, touchMoveOptions);
 	document.addEventListener('touchend', handlers.handleTouchEnd);
 
 	return () => {
 		document.removeEventListener('touchstart', handlers.handleTouchStart);
-		document.removeEventListener('touchmove', handlers.handleTouchMove);
+		document.removeEventListener('touchmove', handlers.handleTouchMove, touchMoveOptions);
 		document.removeEventListener('touchend', handlers.handleTouchEnd);
 	};
 }

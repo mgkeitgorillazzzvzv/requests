@@ -120,7 +120,8 @@ class StatsOut(BaseModel):
     open_requests: int
     closed_requests: int
     ratio: float
-    avg_processing_time_hours: float
+    execution_time_hours: float
+    avg_review_time_hours: float
 
 
 class CreateStatusChangeRequest(BaseModel):

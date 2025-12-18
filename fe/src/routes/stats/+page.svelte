@@ -6,6 +6,7 @@
 	import Button from '$lib/components/controls/Button.svelte';
 	import { showToast } from '$lib/stores/toast';
 	import { currentUser, isHeadOfDepartment } from '$lib/stores/auth';
+	import { createPullToRefresh, attachPullToRefresh, PULL_THRESHOLD } from '$lib/utils/pullToRefresh';
 
 	let selectedBuilding = $state<Building | null>(null);
 	let selectedPeriod = $state<'day' | 'week' | 'month'>('month');
@@ -14,6 +15,7 @@
 	let itStats = $state<StatsOut | null>(null);
 	let maintenanceStats = $state<StatsOut | null>(null);
 	let loading = $state(false);
+	let pullState = $state({ pullProgress: 0, isPulling: false, touchStartY: 0 });
 
 	const statsBuildings = [
 		{ value: '', label: 'Все корпуса' },
@@ -66,6 +68,12 @@
 
 	onMount(() => {
 		loadStats();
+		const pullHandlers = createPullToRefresh(pullState, () => loading, () => loadStats());
+		const cleanup = attachPullToRefresh(pullHandlers);
+
+		return () => {
+			cleanup();
+		};
 	});
 
 	function formatHours(hours: number): string {
@@ -88,7 +96,31 @@
 
 </script>
 
+{#snippet statCard(label: string, value: string | number, colorClass: string)}
+	<div class="bg-gray-50 rounded-lg p-4">
+		<div class="text-sm text-gray-600 font-medium">{label}</div>
+		<div class="text-2xl font-bold {colorClass}">{value}</div>
+	</div>
+{/snippet}
+
+{#snippet statsGrid(stats: StatsOut)}
+	<div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+		{@render statCard('Всего заявок', stats.total_requests, 'text-blue-600')}
+		{@render statCard('Открытые', stats.open_requests, 'text-green-600')}
+		{@render statCard('Закрытые', stats.closed_requests, 'text-purple-600')}
+		{@render statCard('Соотношение', formatRatio(stats.ratio), 'text-amber-600')}
+		{@render statCard('Время исполнения', formatHours(stats.execution_time_hours), 'text-red-600')}
+		{@render statCard('Время рассмотрения', formatHours(stats.avg_review_time_hours), 'text-indigo-600')}
+	</div>
+{/snippet}
+
 <div class="min-h-screen px-4 py-6 md:py-8">
+	{#if pullState.isPulling || pullState.pullProgress > 0}
+		<div
+			class="fixed top-0 left-0 right-0 h-1 bg-blue-500 z-50"
+			style="width: {(pullState.pullProgress / PULL_THRESHOLD) * 100}%"
+		></div>
+	{/if}
 	<div class="max-w-5xl mx-auto">
 		<div class="mb-6">
 			<h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Статистика заявок</h1>
@@ -112,9 +144,9 @@
 				aria-label="Фильтр по периоду"
 				placeholder="Месяц"
 			/>
-			<Button onclick={loadStats} disabled={loading}>
+			<!-- <Button onclick={loadStats} disabled={loading}>
 				{loading ? 'Обновление...' : 'Обновить'}
-			</Button>
+			</Button> -->
 		</div>
 
 		{#if loading && !allStats}
@@ -130,95 +162,22 @@
 							Общая статистика
 						{/if}
 					</h2>
-					<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Всего заявок</div>
-							<div class="text-2xl font-bold text-blue-600">{allStats.total_requests}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Открытые</div>
-							<div class="text-2xl font-bold text-green-600">{allStats.open_requests}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Закрытые</div>
-							<div class="text-2xl font-bold text-purple-600">{allStats.closed_requests}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Соотношение</div>
-							<div class="text-2xl font-bold text-amber-600">{formatRatio(allStats.ratio)}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Среднее время</div>
-							<div class="text-2xl font-bold text-red-600">
-								{formatHours(allStats.avg_processing_time_hours)}
-							</div>
-						</div>
-					</div>
+					{@render statsGrid(allStats)}
 				</div>
 
 				<!-- Department Stats Sections - for all users -->
 				<div class="bg-white rounded-lg shadow-sm p-6">
 					<h2 class="text-xl font-semibold text-gray-800 mb-4">Отдел IT</h2>
-					<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Всего заявок</div>
-							<div class="text-2xl font-bold text-blue-600">{itStats?.total_requests}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Открытые</div>
-							<div class="text-2xl font-bold text-green-600">{itStats?.open_requests}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Закрытые</div>
-							<div class="text-2xl font-bold text-purple-600">{itStats?.closed_requests}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Соотношение</div>
-							<div class="text-2xl font-bold text-amber-600">{formatRatio(itStats?.ratio || 0)}</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Среднее время</div>
-							<div class="text-2xl font-bold text-red-600">
-								{formatHours(itStats?.avg_processing_time_hours || 0)}
-							</div>
-						</div>
-					</div>
+					{#if itStats}
+						{@render statsGrid(itStats)}
+					{/if}
 				</div>
 
 				<div class="bg-white rounded-lg shadow-sm p-6">
 					<h2 class="text-xl font-semibold text-gray-800 mb-4">Отдел АХЧ</h2>
-					<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Всего заявок</div>
-							<div class="text-2xl font-bold text-blue-600">
-								{maintenanceStats?.total_requests}
-							</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Открытые</div>
-							<div class="text-2xl font-bold text-green-600">
-								{maintenanceStats?.open_requests}
-							</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Закрытые</div>
-							<div class="text-2xl font-bold text-purple-600">
-								{maintenanceStats?.closed_requests}
-							</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Соотношение</div>
-							<div class="text-2xl font-bold text-amber-600">
-								{formatRatio(maintenanceStats?.ratio || 0)}
-							</div>
-						</div>
-						<div class="bg-gray-50 rounded-lg p-4">
-							<div class="text-sm text-gray-600 font-medium">Среднее время</div>
-							<div class="text-2xl font-bold text-red-600">
-								{formatHours(maintenanceStats?.avg_processing_time_hours || 0)}
-							</div>
-						</div>
-					</div>
+					{#if maintenanceStats}
+						{@render statsGrid(maintenanceStats)}
+					{/if}
 				</div>
 			</div>
 		{/if}

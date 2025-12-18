@@ -117,7 +117,7 @@
 		fetchRequests(true);
 		window.addEventListener('scroll', handleScroll);
 		
-		const pullHandlers = createPullToRefresh(pullState, isLoading, () => fetchRequests(true));
+		const pullHandlers = createPullToRefresh(pullState, () => isLoading, () => fetchRequests(true));
 		const cleanup = attachPullToRefresh(pullHandlers);
 		
 		return () => {

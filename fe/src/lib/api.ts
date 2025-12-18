@@ -188,7 +188,8 @@ export interface StatsOut {
 	open_requests: number;
 	closed_requests: number;
 	ratio: number;
-	avg_processing_time_hours: number;
+	execution_time_hours: number;
+	avg_review_time_hours: number;
 }
 
 
