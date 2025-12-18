@@ -33,10 +33,9 @@
     let platformInfo = $state<{ os: string; major: number | null; } | null>(null);
 	let showTutorial = $state(false);
 	let shouldShowTutorialButton = $state(false);
-
 	onMount(() => {
 		platformInfo = getPlatformInfo();
-		showTutorial = !isPWA()
+		showTutorial = !isPWA() && (platformInfo.os === 'ios' || platformInfo.os === 'android');
 		shouldShowTutorialButton = showTutorial;
 		const unsubscribe = isAuthenticated.subscribe(value => {
 			if (value) {

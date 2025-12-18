@@ -4,9 +4,9 @@
 	import Dropdown from "$lib/components/controls/Dropdown.svelte";
 	import Entry from "$lib/components/controls/Entry.svelte";
 	import RequestCard from "$lib/components/ui/RequestCard.svelte";
-	import { api, RequestStatus, type RequestOut } from "$lib/api";
+	import { api, RequestStatus, Role, type RequestOut } from "$lib/api";
 	import { showToast } from "$lib/stores/toast";
-	import { canCreateRequests } from "$lib/stores/auth";
+	import { canCreateRequests, userRole } from "$lib/stores/auth";
 	import { createPullToRefresh, attachPullToRefresh, PULL_THRESHOLD } from "$lib/utils/pullToRefresh";
 	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
@@ -14,13 +14,22 @@
 
 	let { data }: { data: PageData } = $props();
 
+	// Determine default filter based on user role
+	const getDefaultFilter = (): 'all' | RequestStatus => {
+		const role = $userRole;
+		if (role === Role.Specialist || role === Role.Executor) {
+			return RequestStatus.Created;
+		}
+		return 'all';
+	};
+
 	let requests = $state<RequestOut[]>(data.requests ?? []);
 	let isLoading = $state(false);
 	let isLoadingMore = $state(false);
 	let hasMore = $state(data.hasMore ?? true);
 	let total = $state(data.total ?? 0);
 	let search = $state('');
-	let statusFilter = $state<'all' | RequestStatus>(RequestStatus.Created);
+	let statusFilter = $state<'all' | RequestStatus>(getDefaultFilter());
 	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 	let listContainer: HTMLDivElement | null = $state(null);
 	let pullState = $state({ pullProgress: 0, isPulling: false, touchStartY: 0 });

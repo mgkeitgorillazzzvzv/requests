@@ -331,6 +331,27 @@ async def approve_anonymous_request(
     return await request_to_out(request)
 
 
+def get_status_priority(status: RequestStatus) -> int:
+    """
+    Returns priority for sorting statuses.
+    Lower number = higher priority (appears first)
+    Priority order:
+    1. PENDING_APPROVAL (ожидает подтверждение)
+    2. CREATED (создано)
+    3. POSTPONED (отложено)
+    4. PENDING_CREATION_APPROVAL (анонимное)
+    5. Others (completed, etc.)
+    """
+    priority_map = {
+        RequestStatus.PENDING_APPROVAL: 1,
+        RequestStatus.CREATED: 2,
+        RequestStatus.POSTPONED: 3,
+        RequestStatus.PENDING_CREATION_APPROVAL: 4,
+        RequestStatus.COMPLETED: 5,
+    }
+    return priority_map.get(status, 99)
+
+
 @router.get("/")
 async def list_requests(
     user: User = Depends(get_current_user),
@@ -372,9 +393,23 @@ async def list_requests(
 
     total = await query.count()
 
-    requests = await query.order_by('-urgent', '-opened_at').offset(offset).limit(limit).prefetch_related('opened_by', 'closed_by', 'photos')
+    # Fetch all results without limit first, then sort and apply pagination
+    all_requests = await query.prefetch_related('opened_by', 'closed_by', 'photos')
+    
+    # Sort by: non-completed first, then urgent (descending), then by status priority, then by opened_at (descending)
+    sorted_requests = sorted(
+        all_requests,
+        key=lambda r: (
+            r.status == RequestStatus.COMPLETED,  # Completed statuses go to the end
+            -r.urgent,  # Then urgent (1) before non-urgent (0)
+            get_status_priority(r.status),  # Then by status priority
+            -r.opened_at.timestamp()  # Then by date
+        )
+    )
 
-    items = [await request_to_out(request) for request in requests]
+    # Apply pagination after sorting
+    paginated_requests = sorted_requests[offset:offset + limit]
+    items = [await request_to_out(request) for request in paginated_requests]
     has_more = offset + len(items) < total
 
     return PaginatedRequestsOut(

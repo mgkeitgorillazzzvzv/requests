@@ -194,7 +194,7 @@
                 </div>
             </div>
         {/if}
-        <Entry bind:value={description} placeholder="Комментарий" disabled={isSubmitting} className="mt-2"/>
+        <!-- <Entry bind:value={description} placeholder="Комментарий" disabled={isSubmitting} className="mt-2"/> -->
 
     </div>
 

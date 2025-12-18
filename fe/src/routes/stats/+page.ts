@@ -1,4 +1,3 @@
-import { api } from "$lib/api";
 import { redirect } from "@sveltejs/kit";
 import { authStore } from "$lib/stores/auth";
 import { get } from "svelte/store";
@@ -11,11 +10,6 @@ export const load = async () => {
         throw redirect(302, '/login');
     }
     
-    try {
-        const users = await api.listUsers();
-        return { users };
-    } catch (error) {
-        console.error('Failed to load users:', error);
-        return { users: [] };
-    }
+    // Stats page will load data on the client side based on selections
+    return {};
 };

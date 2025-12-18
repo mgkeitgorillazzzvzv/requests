@@ -120,7 +120,7 @@
     <BackButton />
     <h1 class="text-2xl font-bold">Редактирование заявки</h1>
     
-    <Entry bind:value={title} placeholder="Опишите проблему" disabled={isLoading}/>
+    <!-- <Entry bind:value={title} placeholder="Опишите проблему" disabled={isLoading}/> -->
     
     <!-- Department selection - только АХЧ в UI (IT появится позже) -->
     <Dropdown

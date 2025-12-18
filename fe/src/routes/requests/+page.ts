@@ -1,6 +1,16 @@
 import { api, RequestStatus } from "$lib/api";
+import { redirect } from "@sveltejs/kit";
+import { authStore } from "$lib/stores/auth";
+import { get } from "svelte/store";
 
 export const load = async () => {
+    const auth = get(authStore);
+    
+    // Prevent API requests if not authenticated
+    if (!auth.token || !auth.user) {
+        throw redirect(302, '/login');
+    }
+    
     try {
         const result = await api.listRequests({
             status: RequestStatus.Created,
