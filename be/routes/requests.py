@@ -234,20 +234,6 @@ async def create_request(
                 )
 
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
     request = await Request.filter(id=request.id).prefetch_related('opened_by', 'closed_by', 'photos').first()
     return await request_to_out(request)
 

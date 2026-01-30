@@ -43,6 +43,7 @@ export const departmentOptions = [
 export interface Token {
 	access_token: string;
 	token_type: string;
+	refresh_token: string;
 }
 
 export interface UserOut {
@@ -196,17 +197,24 @@ export interface StatsOut {
 class APIClient {
 	private baseURL: string;
 	private token: string | null = null;
+	private refreshToken: string | null = null;
+	private isRefreshing: boolean = false;
+	private refreshPromise: Promise<Token> | null = null;
 
 	constructor(baseURL: string = 'http://localhost:8000') {
 		this.baseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
 	}
 
-	setToken(token: string) {
+	setToken(token: string, refreshToken?: string) {
 		this.token = token;
+		if (refreshToken) {
+			this.refreshToken = refreshToken;
+		}
 	}
 
 	clearToken() {
 		this.token = null;
+		this.refreshToken = null;
 	}
 
 	private async request<T>(
@@ -229,6 +237,30 @@ class APIClient {
 			...options,
 			headers
 		});
+
+		// Если 401 и есть refresh token, пытаемся обновить токен
+		if (response.status === 401 && this.refreshToken && path !== '/users/refresh') {
+			try {
+				const newTokens = await this.refresh();
+				// Повторяем запрос с новым токеном
+				headers['Authorization'] = `Bearer ${newTokens.access_token}`;
+				const retryResponse = await fetch(`${this.baseURL}${path}`, {
+					...options,
+					headers
+				});
+
+				if (!retryResponse.ok) {
+					const error = await retryResponse.json().catch(() => ({}));
+					throw new Error(error.detail || `HTTP error! status: ${retryResponse.status}`);
+				}
+
+				return retryResponse.json();
+			} catch (refreshError) {
+				// Если refresh не удался, очищаем токены
+				this.clearToken();
+				throw refreshError;
+			}
+		}
 
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({}));
@@ -257,8 +289,45 @@ class APIClient {
 		}
 
 		const token = await response.json();
-		this.setToken(token.access_token);
+		this.setToken(token.access_token, token.refresh_token);
 		return token;
+	}
+
+	async refresh(): Promise<Token> {
+		if (!this.refreshToken) {
+			throw new Error('No refresh token available');
+		}
+
+		// Избегаем одновременных запросов на refresh
+		if (this.isRefreshing && this.refreshPromise) {
+			return this.refreshPromise;
+		}
+
+		this.isRefreshing = true;
+		this.refreshPromise = (async () => {
+			try {
+				const response = await fetch(`${this.baseURL}/users/refresh`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({ refresh_token: this.refreshToken })
+				});
+
+				if (!response.ok) {
+					throw new Error(`Refresh failed: ${response.status}`);
+				}
+
+				const tokens = await response.json();
+				this.setToken(tokens.access_token, tokens.refresh_token);
+				return tokens;
+			} finally {
+				this.isRefreshing = false;
+				this.refreshPromise = null;
+			}
+		})();
+
+		return this.refreshPromise;
 	}
 
 	async listUsers(): Promise<UserOut[]> {

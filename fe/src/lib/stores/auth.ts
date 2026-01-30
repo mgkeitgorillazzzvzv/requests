@@ -4,15 +4,18 @@ import { api, type UserOut, type Role } from '$lib/api';
 
 interface AuthState {
 	token: string | null;
+	refreshToken: string | null;
 	user: UserOut | null;
 	isLoading: boolean;
 }
 
 const STORAGE_KEY = 'auth_token';
+const REFRESH_STORAGE_KEY = 'refresh_token';
 
 function createAuthStore() {
 	const { subscribe, set, update } = writable<AuthState>({
 		token: null,
+		refreshToken: null,
 		user: null,
 		isLoading: true
 	});
@@ -20,13 +23,15 @@ function createAuthStore() {
 	
 	if (browser) {
 		const storedToken = localStorage.getItem(STORAGE_KEY);
-		if (storedToken) {
-			api.setToken(storedToken);
+		const storedRefreshToken = localStorage.getItem(REFRESH_STORAGE_KEY);
+		if (storedToken && storedRefreshToken) {
+			api.setToken(storedToken, storedRefreshToken);
 			
 			api.getCurrentUser()
 				.then(user => {
 					update(state => ({
 						token: storedToken,
+						refreshToken: storedRefreshToken,
 						user,
 						isLoading: false
 					}));
@@ -34,9 +39,11 @@ function createAuthStore() {
 				.catch(() => {
 					
 					localStorage.removeItem(STORAGE_KEY);
+					localStorage.removeItem(REFRESH_STORAGE_KEY);
 					api.clearToken();
 					update(state => ({
 						token: null,
+						refreshToken: null,
 						user: null,
 						isLoading: false
 					}));
@@ -55,10 +62,12 @@ function createAuthStore() {
 				
 				if (browser) {
 					localStorage.setItem(STORAGE_KEY, tokenData.access_token);
+					localStorage.setItem(REFRESH_STORAGE_KEY, tokenData.refresh_token);
 				}
 				
 				set({
 					token: tokenData.access_token,
+					refreshToken: tokenData.refresh_token,
 					user,
 					isLoading: false
 				});
@@ -74,10 +83,12 @@ function createAuthStore() {
 		logout: () => {
 			if (browser) {
 				localStorage.removeItem(STORAGE_KEY);
+				localStorage.removeItem(REFRESH_STORAGE_KEY);
 			}
 			api.clearToken();
 			set({
 				token: null,
+				refreshToken: null,
 				user: null,
 				isLoading: false
 			});
@@ -90,10 +101,12 @@ function createAuthStore() {
 				
 				if (browser) {
 					localStorage.removeItem(STORAGE_KEY);
+					localStorage.removeItem(REFRESH_STORAGE_KEY);
 				}
 				api.clearToken();
 				set({
 					token: null,
+					refreshToken: null,
 					user: null,
 					isLoading: false
 				});

@@ -15,10 +15,17 @@ from auth import (
 	verify_password,
 	get_password_hash,
 	create_access_token,
+	create_refresh_token,
 	get_current_user,
 	get_current_admin_user,
 	get_current_admin_or_head_user,
 )
+from authlib.jose import jwt
+from authlib.jose.errors import JoseError
+from pydantic import BaseModel
+
+class RefreshTokenRequest(BaseModel):
+	refresh_token: str
 
 router = APIRouter()
 
@@ -31,7 +38,62 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 	token_data = {"sub": user.username, "id": user.id, "role": (user.role if hasattr(user.role, 'value') else user.role)}
 	access_token = create_access_token(token_data)
-	return {"access_token": access_token, "token_type": "bearer"}
+	refresh_token = create_refresh_token(token_data)
+	return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(request: RefreshTokenRequest):
+	"""Refresh access token using a valid refresh token"""
+	try:
+		from auth import SECRET_KEY, ALGORITHM
+		
+		# Декодируем и валидируем refresh token
+		claims = jwt.decode(request.refresh_token, SECRET_KEY)
+		claims.validate()
+		payload = dict(claims)
+		
+		# Проверяем что это именно refresh token
+		if payload.get("type") != "refresh":
+			raise HTTPException(
+				status_code=status.HTTP_401_UNAUTHORIZED,
+				detail="Invalid token type"
+			)
+		
+		user_id = payload.get("id")
+		if not user_id:
+			raise HTTPException(
+				status_code=status.HTTP_401_UNAUTHORIZED,
+				detail="Invalid token"
+			)
+		
+		# Проверяем что пользователь еще существует
+		user = await User.get_or_none(id=user_id)
+		if not user:
+			raise HTTPException(
+				status_code=status.HTTP_401_UNAUTHORIZED,
+				detail="User not found"
+			)
+		
+		# Создаем новые токены
+		token_data = {
+			"sub": user.username,
+			"id": user.id,
+			"role": (user.role if hasattr(user.role, 'value') else user.role)
+		}
+		new_access_token = create_access_token(token_data)
+		new_refresh_token = create_refresh_token(token_data)
+		
+		return {
+			"access_token": new_access_token,
+			"token_type": "bearer",
+			"refresh_token": new_refresh_token
+		}
+	except (JoseError, Exception) as e:
+		raise HTTPException(
+			status_code=status.HTTP_401_UNAUTHORIZED,
+			detail="Invalid or expired refresh token"
+		)
 
 
 @router.post("/", response_model=UserOut)
